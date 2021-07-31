@@ -1,0 +1,42 @@
+* Introduce
+winspice provides windows remote desktop access using the Spice protocol.
+
+* Building
+** Prepare build environment
+
+Use fedora 32 as the compilation platform
+
+#+BEGIN_SRC bash
+$ yum install yum-utils cmake
+$ yum-builddep mingw32-spice-glib
+#+END_SRC
+
+** Build spice server library
+
+For convenience, use the stable tar package directly instead of the git version
+to build spice library, e.g.
+
+$ tar xf spice-{VERSION}.tar.bz2
+$ cd spice-{VERSION}
+$ mingw32-configure
+$ mingw32-make
+$ mingw32-make install
+
+** Build winspice
+
+$ git clone https://github.com/mathslinux/winspice.git
+$ cd winspice
+$ mkdir -p build && mingw32-cmake ../
+$ mingw32-make
+
+* How to run
+
+Copy all the dll libraries that the winspice.exe depends on to the folder 
+where the exe is located. Then open window cmd, run:
+#+BEGIN_SRC bash
+$ winspice.exe <PORT>
+#+END_SRC
+Or double click winspice.exe to run, the default port is 5900.
+
+In the future, a GUI window will be provided to set the port, username and 
+other parameters.
