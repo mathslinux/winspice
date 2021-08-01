@@ -34,9 +34,12 @@ $ mingw32-make
 Copy all the dll libraries that the winspice.exe depends on to the folder 
 where the exe is located. Then open window cmd, run:
 #+BEGIN_SRC bash
-$ winspice.exe <PORT>
+$ winspice.exe
 #+END_SRC
 Or double click winspice.exe to run, the default port is 5900.
+
+NOTE: winspice currently only supports windows 8 and above since windows DXGI 
+interface is used to get the display data.
 
 In the future, a GUI window will be provided to set the port, username and 
 other parameters.
