@@ -72,6 +72,7 @@ static void display_update(WinSpiceServer *server)
         g_async_queue_push(server->drawable_queue, drawable);
         wspice->wakeup(wspice);
     }
+    wdisplay->clear_invalid_region(wdisplay);
 }
 
 static void mouse_update(WinSpiceServer *server)

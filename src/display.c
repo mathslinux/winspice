@@ -321,6 +321,11 @@ failed:
     return -1;
 }
 
+static void clear_invalid_region(WinDisplay *wdisplay)
+{
+    SetRectEmpty(&wdisplay->invalid);
+}
+
 static int get_screen_bitmap(WinDisplay *wdisplay, uint8_t **bitmap, int *pitch)
 {
     if (!bitmap || !pitch) {
@@ -652,6 +657,7 @@ WinDisplay *win_display_new(GAsyncQueue *drawable_queue)
     wdisplay->release_update_frame = release_update_frame;
     wdisplay->display_have_updates = display_have_updates;
     wdisplay->find_invalid_region = find_invalid_region;
+    wdisplay->clear_invalid_region = clear_invalid_region;
     wdisplay->get_screen_bitmap = get_screen_bitmap;
     wdisplay->PtrInfo = malloc(sizeof(PTR_INFO));
 

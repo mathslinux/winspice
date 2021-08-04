@@ -49,6 +49,7 @@ typedef struct WinDisplay {
     void (*release_update_frame)(struct WinDisplay *wdisplay);
     bool (*display_have_updates)(struct WinDisplay *wdisplay);
     int (*find_invalid_region)(struct WinDisplay *wdisplay);
+    void (*clear_invalid_region)(struct WinDisplay *wdisplay);
     int (*get_screen_bitmap)(struct WinDisplay *wdisplay, uint8_t **bitmap, int *pitch);
 
     /// mouse
