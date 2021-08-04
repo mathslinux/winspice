@@ -759,7 +759,6 @@ WinSpice *win_spice_new(GAsyncQueue *drawable_queue,
     spice_server_set_addr(wspice->server, "0.0.0.0", 0);   /* FIXME:  */
     spice_server_set_noauth(wspice->server);  /* FIXME:  */
     //spice_server_set_image_compression(wspice->server, SPICE_IMAGE_COMPRESSION_AUTO_GLZ);  /* FIXME:  */
-    spice_server_set_image_compression(wspice->server, SPICE_IMAGE_COMPRESSION_OFF);  /* FIXME:  */
 
     /// qxl
     wspice->qxl.base.sif = &dpy_interface.base;
