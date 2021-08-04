@@ -34,9 +34,9 @@ static guint32 fps = 30;
 
 static inline glong get_tick_count()
 {
-    GTimeVal tv;
-    g_get_current_time(&tv);
-    return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+    gint64 tv;
+    tv = g_get_real_time();
+    return tv / 1000;
 }
 
 static void display_update(WinSpiceServer *server)
