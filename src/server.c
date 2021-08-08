@@ -156,7 +156,7 @@ static void start(WinSpiceServer *server)
     g_main_loop_run(loop);
 }
 
-WinSpiceServer *win_spice_server_new()
+WinSpiceServer *win_spice_server_new(WinSpiceOption *options)
 {
     WinSpiceServer *server = (WinSpiceServer *)malloc(sizeof(WinSpiceServer));
     memset(server, 0, sizeof(*server));
@@ -164,7 +164,8 @@ WinSpiceServer *win_spice_server_new()
         printf("failed to alloc memory for winspiceserver\n");
         goto failed;
     }
-    server->port = 5900;        /* TODO: */
+
+    server->options = options;
 
     server->drawable_queue = g_async_queue_new();
 
@@ -179,7 +180,8 @@ WinSpiceServer *win_spice_server_new()
 
     /// spice init
     /* TODO: set primary dynamically */
-    server->wspice = win_spice_new(server->drawable_queue, server->wdisplay->width, server->wdisplay->height);
+    server->wspice = win_spice_new(server->options, server->drawable_queue,
+                                   server->wdisplay->width, server->wdisplay->height);
     if (!server->wspice) {
         goto failed;
     }

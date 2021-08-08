@@ -25,6 +25,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <pthread.h>
+#include "options.h"
 
 typedef struct SimpleSpiceCursor {
     QXLCursorCmd cmd;
@@ -40,7 +41,6 @@ typedef struct WinSpice {
     bool emul0;
     SpiceKbdInstance kbd;
 
-    uint32_t port;
     GAsyncQueue *drawable_queue;
     SimpleSpiceCursor *ptr_define;
     SimpleSpiceCursor *ptr_move;
@@ -74,7 +74,8 @@ typedef struct WinSpiceCursor {
 void *bitmaps_to_drawable(uint8_t *bitmaps, QXLRect *rect, int bytes_per_line);
 void *create_cursor_update(WinSpice *wspice, WinSpiceCursor *c, int on);
 
-WinSpice *win_spice_new(GAsyncQueue *drawable_queue, int primary_width, int primary_height);
+WinSpice *win_spice_new(WinSpiceOption *options, GAsyncQueue *drawable_queue,
+                        int primary_width, int primary_height);
 
 void win_spice_free(WinSpice *wspice);
 

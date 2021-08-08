@@ -29,13 +29,20 @@
 int main(int argc, char *argv[])
 {
     WinSpiceServer *server = NULL;
+    WinSpiceOption *options = NULL;
 
     /* TODO: log_init */
     printf("winspice init\n");
 
     /* TODO: program arguments */
 
-    server = win_spice_server_new();
+    options = winspice_options_new();
+    if (!options) {
+        printf("Failed to create winspice option\n");
+        return -1;
+    }
+
+    server = win_spice_server_new(options);
     if (!server) {
         printf("failed to create windows spice server\n");
         return -1;

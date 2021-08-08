@@ -743,7 +743,7 @@ static const SpiceKbdInterface kbd_interface = {
     .get_leds           = kbd_get_leds,
 };
 
-WinSpice *win_spice_new(GAsyncQueue *drawable_queue,
+WinSpice *win_spice_new(WinSpiceOption *options, GAsyncQueue *drawable_queue,
                         int primary_width, int primary_height)
 {
     WinSpice *wspice = (WinSpice *)malloc(sizeof(*wspice));
@@ -755,7 +755,7 @@ WinSpice *win_spice_new(GAsyncQueue *drawable_queue,
 
     /// server
     wspice->server = spice_server_new();
-    spice_server_set_port(wspice->server, 5900);   /* FIXME:  */
+    spice_server_set_port(wspice->server, winspice_options_get_int(options, "port"));
     spice_server_set_addr(wspice->server, "0.0.0.0", 0);   /* FIXME:  */
     spice_server_set_noauth(wspice->server);  /* FIXME:  */
     //spice_server_set_image_compression(wspice->server, SPICE_IMAGE_COMPRESSION_AUTO_GLZ);  /* FIXME:  */
@@ -770,7 +770,7 @@ WinSpice *win_spice_new(GAsyncQueue *drawable_queue,
     /// keyboard
     wspice->kbd.base.sif = &kbd_interface.base;
 
-    wspice->port = 5900;
+    //wspice->port = 5900;
     wspice->drawable_queue = drawable_queue;
     pthread_mutex_init(&wspice->lock, NULL);
 

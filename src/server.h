@@ -25,9 +25,10 @@
 #include <stdint.h>
 #include "wspice.h"
 #include "display.h"
+#include "options.h"
 
 typedef struct WinSpiceServer {
-    uint32_t port;
+    WinSpiceOption *options;
 
     /// drawable queue
     GAsyncQueue *drawable_queue;
@@ -46,7 +47,7 @@ typedef struct WinSpiceServer {
     void (*stop)(struct WinSpiceServer *server);
 } WinSpiceServer;
 
-WinSpiceServer *win_spice_server_new();
+WinSpiceServer *win_spice_server_new(WinSpiceOption *options);
 void win_spice_server_free(WinSpiceServer *server);
 
 #endif /* WIN_SPICE_SERVER_H */
