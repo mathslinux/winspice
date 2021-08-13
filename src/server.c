@@ -148,12 +148,8 @@ static void *win_spice_update_thread(void *arg)
 
 static void start(WinSpiceServer *server)
 {
-    GMainLoop *loop;
     pthread_t pid;
     pthread_create(&pid, NULL, win_spice_update_thread, server);
-
-    loop = g_main_loop_new(server->main_context, FALSE);
-    g_main_loop_run(loop);
 }
 
 WinSpiceServer *win_spice_server_new(WinSpiceOption *options)

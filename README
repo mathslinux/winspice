@@ -7,7 +7,7 @@ winspice provides windows remote desktop access using the Spice protocol.
 Use fedora 32 as the compilation platform
 
 #+BEGIN_SRC bash
-$ yum install yum-utils cmake
+$ yum install yum-utils cmake mingw32-gtk3
 $ yum-builddep mingw32-spice-glib
 #+END_SRC
 
@@ -26,7 +26,7 @@ $ mingw32-make install
 
 $ git clone https://github.com/mathslinux/winspice.git
 $ cd winspice
-$ mkdir -p build && mingw32-cmake ../
+$ mkdir -p build && cd build && mingw32-cmake ../
 $ mingw32-make
 
 * How to run

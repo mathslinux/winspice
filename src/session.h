@@ -17,53 +17,25 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-/**
- * @file   main.c
- * @brief  The main program for winspice
- */
 
-#include <glib.h>
-#include <stdio.h>
+#ifndef WIN_SPICE_SESSION_H
+#define WIN_SPICE_SESSION_H
+
 #include "server.h"
+#include "options.h"
 #include "gui.h"
-#include "session.h"
 
-/// FIXME: ugly hack
-/// save application path globally
+typedef struct WinSpiceSession {
+    WinSpiceOption *options;
+    WinSpiceServer *server;
+    WinSpiceGUI *gui;
 
-int main(int argc, char *argv[])
-{
-    WinSpiceGUI *gui = NULL;
-    int rc = 0;
-    WinSpiceSession *session = NULL;
+    char *app_path;
+} WinSpiceSession;
 
-    /* TODO: log_init */
-    printf("winspice init\n");
+WinSpiceSession *session_new(int argc, char **argv);
+void session_start(WinSpiceSession *session);
+void session_destroy(WinSpiceSession *session);
 
-    session = session_new(argc, argv);
-    if (!session) {
-        printf("Failed to createsession\n");
-        rc = -1;
-        goto quit;
-    }
-
-    gui = gui_new(session);
-    if (!gui) {
-        printf("Failed to create gui\n");
-        rc = -1;
-        goto quit;
-    }
-
-    gui_run(gui);
-
-quit:
-    if (session) {
-        session_destroy(session);
-    }
-    if (gui) {
-        gui_destroy(gui);
-    }
-
-    return rc;
-}
+#endif  /* WIN_SPICE_SESSION_H */
 
