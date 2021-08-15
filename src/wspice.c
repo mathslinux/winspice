@@ -17,126 +17,20 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+/**
+ * @file   wspice.c
+ * @brief  Window spice server module
+ */
+
 #include <glib.h>
-#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <spice.h>
+#include <unistd.h>
 #include "wspice.h"
+#include "session.h"
 
-typedef struct SimpleSpiceUpdate {
-    QXLDrawable drawable;
-    QXLImage image;
-    QXLCommandExt ext;
-    uint8_t *bitmaps;
-} SimpleSpiceUpdate;
-
-void *bitmaps_to_drawable(uint8_t *bitmaps, QXLRect *rect, int bytes_per_line)
-{
-    SimpleSpiceUpdate *update;
-    QXLDrawable *drawable;
-    QXLImage *qxl_image;
-    QXLCommand *cmd;
-    int bw, bh;
-
-    update    = g_malloc0(sizeof(*update));
-    drawable  = &update->drawable;
-    qxl_image = &update->image;
-    cmd       = &update->ext.cmd;
-
-    bw        = rect->right - rect->left;
-    bh        = rect->bottom - rect->top;
-
-    update->bitmaps = bitmaps;
-
-    drawable->bbox            = *rect;
-    drawable->clip.type       = SPICE_CLIP_TYPE_NONE;
-    drawable->effect          = QXL_EFFECT_OPAQUE;
-    drawable->release_info.id = (uintptr_t)(&update->ext);
-    drawable->type            = QXL_DRAW_COPY;
-
-    drawable->surfaces_dest[0] = -1;
-    drawable->surfaces_dest[1] = -1;
-    drawable->surfaces_dest[2] = -1;
-    drawable->surface_id       = 0;
-
-    drawable->u.copy.rop_descriptor = SPICE_ROPD_OP_PUT;
-    drawable->u.copy.src_bitmap = (uintptr_t)qxl_image;
-    drawable->u.copy.src_area.left = 0;
-    drawable->u.copy.src_area.top = 0;
-    drawable->u.copy.src_area.right = bw;
-    drawable->u.copy.src_area.bottom = bh;
-
-    qxl_image->descriptor.type = SPICE_IMAGE_TYPE_BITMAP;
-    qxl_image->bitmap.flags = SPICE_BITMAP_FLAGS_TOP_DOWN | QXL_BITMAP_DIRECT;
-    qxl_image->bitmap.stride = bytes_per_line;
-    qxl_image->descriptor.width = qxl_image->bitmap.x = bw;
-    qxl_image->descriptor.height = qxl_image->bitmap.y = bh;
-    qxl_image->bitmap.data = (uintptr_t)bitmaps;
-    qxl_image->bitmap.palette = 0;
-    qxl_image->bitmap.format = SPICE_BITMAP_FMT_RGBA;
-
-    cmd->type = QXL_CMD_DRAW;
-    cmd->data = (uintptr_t)drawable;
-
-    return update;
-}
-
-void *create_cursor_update(WinSpice *wspice, WinSpiceCursor *c, int on)
-{
-    size_t size = 0;
-    SimpleSpiceCursor *update;
-    QXLCursorCmd *ccmd;
-    QXLCursor *cursor;
-    QXLCommand *cmd;
-
-    if (c) {
-        if (wspice->ptr_type == SPICE_CURSOR_TYPE_MONO) {
-            /**
-             * cursor height is equal to AND mask heigh, but actual cursor
-             * data contains two parts: AND mask bitmaps, and XOR mask bitmaps
-             * so datasize should recalculation here.
-             */
-            int bpl = (c->width + 7) / 8;
-            size = bpl * c->height * 2;
-        } else {
-            size = c->width * c->height * 4;
-        }
-    }
-
-    update   = g_malloc0(sizeof(*update) + size);
-    ccmd     = &update->cmd;
-    cursor   = &update->cursor;
-    cmd      = &update->ext.cmd;
-
-    if (c) {
-        ccmd->type = QXL_CURSOR_SET;
-        ccmd->u.set.position.x = wspice->ptr_x + wspice->hot_x;
-        ccmd->u.set.position.y = wspice->ptr_y + wspice->hot_y;
-        ccmd->u.set.visible    = true;
-        ccmd->u.set.shape      = (uintptr_t)cursor;
-        cursor->header.type       = wspice->ptr_type;
-        cursor->header.unique     = 0;
-        cursor->header.width      = c->width;
-        cursor->header.height     = c->height;
-        cursor->header.hot_spot_x = c->hot_x;
-        cursor->header.hot_spot_y = c->hot_y;
-        cursor->data_size         = size;
-        cursor->chunk.data_size   = size;
-        memcpy(cursor->chunk.data, c->data, size);
-    } else if (!on) {
-        ccmd->type = QXL_CURSOR_HIDE;
-    } else {
-        ccmd->type = QXL_CURSOR_MOVE;
-        ccmd->u.position.x = wspice->ptr_x + wspice->hot_x;
-        ccmd->u.position.y = wspice->ptr_y + wspice->hot_y;
-    }
-    ccmd->release_info.id = (uintptr_t)(&update->ext);
-
-    cmd->type = QXL_CMD_CURSOR;
-    cmd->data = (uintptr_t)ccmd;
-
-    return update;
-}
-
-static int send_monitors_config(WinSpice *wspice)
+static int send_monitors_config(WSpice *wspice)
 {
     QXLMonitorsConfig *monitors = calloc(1, sizeof(QXLMonitorsConfig) + sizeof(QXLHead));
     if (!monitors)
@@ -154,7 +48,7 @@ static int send_monitors_config(WinSpice *wspice)
     return 0;
 }
 
-static void create_primary_surface(WinSpice *wspice)
+static void create_primary_surface(WSpice *wspice)
 {
     QXLDevSurfaceCreate surface;
     int current_surface_size;
@@ -190,7 +84,7 @@ static void create_primary_surface(WinSpice *wspice)
 static void attache_worker(QXLInstance *qin, QXLWorker *_qxl_worker)
 {
     static QXLWorker *qxl_worker = NULL;
-    WinSpice *wspice = SPICE_CONTAINEROF(qin, WinSpice, qxl);
+    WSpice *wspice = SPICE_CONTAINEROF(qin, WSpice, qxl);
 
     g_print("attach new one\n");
 
@@ -235,7 +129,7 @@ static void get_init_info(QXLInstance *qin G_GNUC_UNUSED, QXLDevInitInfo *info)
 
 static int get_command(QXLInstance *qin G_GNUC_UNUSED, struct QXLCommandExt *ext)
 {
-    WinSpice *wspice = SPICE_CONTAINEROF(qin, WinSpice, qxl);
+    WSpice *wspice = SPICE_CONTAINEROF(qin, WSpice, qxl);
     SimpleSpiceUpdate *update;
 
     update = g_async_queue_try_pop(wspice->drawable_queue);
@@ -250,7 +144,7 @@ static int get_command(QXLInstance *qin G_GNUC_UNUSED, struct QXLCommandExt *ext
 
 static int req_cmd_notification(QXLInstance *qin G_GNUC_UNUSED)
 {
-    WinSpice *wspice = SPICE_CONTAINEROF(qin, WinSpice, qxl);
+    WSpice *wspice = SPICE_CONTAINEROF(qin, WSpice, qxl);
     if (g_async_queue_length(wspice->drawable_queue) > 0) {
         return 0;
     }
@@ -283,7 +177,7 @@ static void release_resource(QXLInstance *qin G_GNUC_UNUSED,
 static int get_cursor_command(QXLInstance *qin G_GNUC_UNUSED, struct QXLCommandExt *ext G_GNUC_UNUSED)
 {
     //printf("FIXME! UNIMPLEMENTED! %s\n", __func__);
-    WinSpice *wspice = SPICE_CONTAINEROF(qin, WinSpice, qxl);
+    WSpice *wspice = SPICE_CONTAINEROF(qin, WSpice, qxl);
     bool ret;
 
     pthread_mutex_lock(&wspice->lock);
@@ -537,7 +431,71 @@ static SpiceCoreInterface core_interface = {
     .channel_event      = channel_event,
 };
 
-void wakeup(struct WinSpice *wspice)
+static void *bitmaps_to_drawable(uint8_t *bitmaps, QXLRect *rect, int pitch)
+{
+    SimpleSpiceUpdate *update;
+    QXLDrawable *drawable;
+    QXLImage *qxl_image;
+    QXLCommand *cmd;
+    int bw, bh;
+
+    update    = g_malloc0(sizeof(*update));
+    drawable  = &update->drawable;
+    qxl_image = &update->image;
+    cmd       = &update->ext.cmd;
+
+    bw        = rect->right - rect->left;
+    bh        = rect->bottom - rect->top;
+
+    update->bitmaps = bitmaps;
+
+    drawable->bbox            = *rect;
+    drawable->clip.type       = SPICE_CLIP_TYPE_NONE;
+    drawable->effect          = QXL_EFFECT_OPAQUE;
+    drawable->release_info.id = (uintptr_t)(&update->ext);
+    drawable->type            = QXL_DRAW_COPY;
+
+    drawable->surfaces_dest[0] = -1;
+    drawable->surfaces_dest[1] = -1;
+    drawable->surfaces_dest[2] = -1;
+    drawable->surface_id       = 0;
+
+    drawable->u.copy.rop_descriptor = SPICE_ROPD_OP_PUT;
+    drawable->u.copy.src_bitmap = (uintptr_t)qxl_image;
+    drawable->u.copy.src_area.left = 0;
+    drawable->u.copy.src_area.top = 0;
+    drawable->u.copy.src_area.right = bw;
+    drawable->u.copy.src_area.bottom = bh;
+
+    qxl_image->descriptor.type = SPICE_IMAGE_TYPE_BITMAP;
+    qxl_image->bitmap.flags = SPICE_BITMAP_FLAGS_TOP_DOWN | QXL_BITMAP_DIRECT;
+    qxl_image->bitmap.stride = pitch;
+    qxl_image->descriptor.width = qxl_image->bitmap.x = bw;
+    qxl_image->descriptor.height = qxl_image->bitmap.y = bh;
+    qxl_image->bitmap.data = (uintptr_t)bitmaps;
+    qxl_image->bitmap.palette = 0;
+    qxl_image->bitmap.format = SPICE_BITMAP_FMT_RGBA;
+
+    cmd->type = QXL_CMD_DRAW;
+    cmd->data = (uintptr_t)drawable;
+
+    return update;
+}
+
+static void handle_invalid_bitmaps(struct WSpice *wspice, WinSpiceInvalid *invalid)
+{
+    void *drawable;
+
+    drawable = bitmaps_to_drawable(invalid->bitmaps, &invalid->rect, invalid->pitch);
+    if (drawable) {
+        g_async_queue_push(wspice->drawable_queue, drawable);
+        wspice->wakeup(wspice);
+    } else {
+        g_free(invalid->bitmaps);
+    }
+}
+
+void wakeup(struct WSpice *wspice)
 {
     spice_qxl_wakeup(&wspice->qxl);
 }
@@ -596,7 +554,7 @@ static void send_mouse_event(WinspiceMouseButton button, bool down)
 }
 
 /// copy from qemu/ui/spice-input.c
-static void spice_update_buttons(WinSpice *wspice,
+static void spice_update_buttons(WSpice *wspice,
                                  int wheel, uint32_t button_mask)
 {
     uint32_t btn;
@@ -633,9 +591,9 @@ static void tablet_set_logical_size(SpiceTabletInstance* sin, int width, int hei
 static void tablet_position(SpiceTabletInstance* sin, int x, int y,
                             uint32_t buttons_state)
 {
-    WinSpice *wspice = SPICE_CONTAINEROF(sin, WinSpice, tablet);
+    WSpice *wspice = SPICE_CONTAINEROF(sin, WSpice, tablet);
 
-    //spice_update_buttons(wspice, 0, buttons_state);
+    //spice_update_buttons(server, 0, buttons_state);
 
     INPUT mouse_event;
 	ZeroMemory(&mouse_event, sizeof(INPUT));
@@ -654,14 +612,14 @@ static void tablet_position(SpiceTabletInstance* sin, int x, int y,
 static void tablet_wheel(SpiceTabletInstance* sin, int wheel,
                          uint32_t buttons_state)
 {
-    WinSpice *wspice = SPICE_CONTAINEROF(sin, WinSpice, tablet);
+    WSpice *wspice = SPICE_CONTAINEROF(sin, WSpice, tablet);
     spice_update_buttons(wspice, wheel, buttons_state);
 }
 
 static void tablet_buttons(SpiceTabletInstance *sin,
                            uint32_t buttons_state)
 {
-    WinSpice *wspice = SPICE_CONTAINEROF(sin, WinSpice, tablet);
+    WSpice *wspice = SPICE_CONTAINEROF(sin, WSpice, tablet);
     spice_update_buttons(wspice, 0, buttons_state);
 }
 
@@ -681,7 +639,7 @@ static const SpiceTabletInterface tablet_interface = {
 /// keymap reference: https://www.win.tue.nl/~aeb/linux/kbd/scancodes-1.html
 static void kbd_push_key(SpiceKbdInstance *sin, uint8_t scancode)
 {
-    WinSpice *wspice = SPICE_CONTAINEROF(sin, WinSpice, kbd);
+    WSpice *wspice = SPICE_CONTAINEROF(sin, WSpice, kbd);
     bool up;
     int keycode;
     INPUT keyboard_event;
@@ -743,19 +701,68 @@ static const SpiceKbdInterface kbd_interface = {
     .get_leds           = kbd_get_leds,
 };
 
-WinSpice *win_spice_new(WinSpiceOption *options, GAsyncQueue *drawable_queue,
-                        int primary_width, int primary_height)
+void *create_cursor_update(WSpice *wspice, WinSpiceCursor *c, int on)
 {
-    WinSpice *wspice = (WinSpice *)malloc(sizeof(*wspice));
-    if (!wspice) {
-        /* FIXME: log */
-        return NULL;
-    }
-    memset(wspice, 0, sizeof(*wspice));
+    size_t size = 0;
+    SimpleSpiceCursor *update;
+    QXLCursorCmd *ccmd;
+    QXLCursor *cursor;
+    QXLCommand *cmd;
 
+    if (c) {
+        if (wspice->ptr_type == SPICE_CURSOR_TYPE_MONO) {
+            /**
+             * cursor height is equal to AND mask heigh, but actual cursor
+             * data contains two parts: AND mask bitmaps, and XOR mask bitmaps
+             * so datasize should recalculation here.
+             */
+            int bpl = (c->width + 7) / 8;
+            size = bpl * c->height * 2;
+        } else {
+            size = c->width * c->height * 4;
+        }
+    }
+
+    update   = g_malloc0(sizeof(*update) + size);
+    ccmd     = &update->cmd;
+    cursor   = &update->cursor;
+    cmd      = &update->ext.cmd;
+
+    if (c) {
+        ccmd->type = QXL_CURSOR_SET;
+        ccmd->u.set.position.x = wspice->ptr_x + wspice->hot_x;
+        ccmd->u.set.position.y = wspice->ptr_y + wspice->hot_y;
+        ccmd->u.set.visible    = true;
+        ccmd->u.set.shape      = (uintptr_t)cursor;
+        cursor->header.type       = wspice->ptr_type;
+        cursor->header.unique     = 0;
+        cursor->header.width      = c->width;
+        cursor->header.height     = c->height;
+        cursor->header.hot_spot_x = c->hot_x;
+        cursor->header.hot_spot_y = c->hot_y;
+        cursor->data_size         = size;
+        cursor->chunk.data_size   = size;
+        memcpy(cursor->chunk.data, c->data, size);
+    } else if (!on) {
+        ccmd->type = QXL_CURSOR_HIDE;
+    } else {
+        ccmd->type = QXL_CURSOR_MOVE;
+        ccmd->u.position.x = wspice->ptr_x + wspice->hot_x;
+        ccmd->u.position.y = wspice->ptr_y + wspice->hot_y;
+    }
+    ccmd->release_info.id = (uintptr_t)(&update->ext);
+
+    cmd->type = QXL_CMD_CURSOR;
+    cmd->data = (uintptr_t)ccmd;
+
+    return update;
+}
+
+static void start(WSpice *wspice)
+{
     /// server
     wspice->server = spice_server_new();
-    spice_server_set_port(wspice->server, winspice_options_get_int(options, "port"));
+    spice_server_set_port(wspice->server, options_get_int(wspice->options, "port"));
     spice_server_set_addr(wspice->server, "0.0.0.0", 0);   /* FIXME:  */
     spice_server_set_noauth(wspice->server);  /* FIXME:  */
     //spice_server_set_image_compression(wspice->server, SPICE_IMAGE_COMPRESSION_AUTO_GLZ);  /* FIXME:  */
@@ -769,21 +776,6 @@ WinSpice *win_spice_new(WinSpiceOption *options, GAsyncQueue *drawable_queue,
 
     /// keyboard
     wspice->kbd.base.sif = &kbd_interface.base;
-
-    //wspice->port = 5900;
-    wspice->drawable_queue = drawable_queue;
-    pthread_mutex_init(&wspice->lock, NULL);
-
-    /// primary_surface
-    wspice->primary_surface = NULL;
-    wspice->primary_surface_size = 0;
-    wspice->primary_width = primary_width;
-    wspice->primary_height = primary_height;
-
-    /// function
-    wspice->start = NULL;
-    wspice->stop = NULL;
-    wspice->wakeup = wakeup;
 
     if (spice_server_init(wspice->server, &core_interface) != 0) {
         printf("failed to initialize spice server\n");
@@ -807,14 +799,59 @@ WinSpice *win_spice_new(WinSpiceOption *options, GAsyncQueue *drawable_queue,
         printf("failed to add kbd interface\n");
         exit(1);
     }
-
-    return wspice;
 }
 
-void win_spice_free(WinSpice *wspice)
+static void stop(WSpice *wspice)
 {
-    printf("FIXME! UNIMPLEMENTED! %s\n", __func__);
-    if (wspice) {
-        free(wspice);
+    spice_server_destroy(wspice->server);
+    wspice->server = NULL;
+}
+
+WSpice *wspice_new(struct Session *session)
+{
+    WSpice *wspice = (WSpice *)malloc(sizeof(WSpice));
+    memset(wspice, 0, sizeof(*wspice));
+    if (!wspice) {
+        printf("failed to alloc memory for winspiceserver\n");
+        goto failed;
     }
+
+    wspice->session = session;
+    wspice->options = session->options;
+
+    /// drawable_queue init
+    wspice->drawable_queue = g_async_queue_new();
+
+    pthread_mutex_init(&wspice->lock, NULL);
+
+    /// primary_surface
+    wspice->primary_surface = NULL;
+    wspice->primary_surface_size = 0;
+    wspice->primary_width = session->display->width;
+    wspice->primary_height = session->display->height;
+
+    /// function
+    wspice->start = start;
+    wspice->stop = stop;
+    wspice->wakeup = wakeup;
+    wspice->handle_invalid_bitmaps = handle_invalid_bitmaps;
+
+    return wspice;
+
+failed:
+    if (wspice) {
+        wspice_destroy(wspice);
+    }
+    return NULL;
+}
+
+void wspice_destroy(WSpice *wspice)
+{
+    if (!wspice) {
+        return;
+    }
+    free(wspice);
+    // TODO: destroy drawable_queue;
+    printf("FIXME! %s UNIMPLEMENTED!\n", __FUNCTION__);
+    return;
 }

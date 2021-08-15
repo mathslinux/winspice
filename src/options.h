@@ -4,18 +4,18 @@
 #include <stdbool.h>
 #include <gmodule.h>
 
-typedef struct WinSpiceOption{
+typedef struct Options {
     char password[128];
     int port;
     bool ssl;
 
     GList *compression_name_list;
     GList *compression_list;
-} WinSpiceOption;
+} Options;
 
-WinSpiceOption *winspice_options_new();
-char *winspice_options_get_string(WinSpiceOption *options, const char *key);
-int winspice_options_get_int(WinSpiceOption *options, const char *key);
-void winspice_options_free(WinSpiceOption *options);
+Options *options_new();
+char *options_get_string(Options *options, const char *key);
+int options_get_int(Options *options, const char *key);
+void options_destroy(Options *options);
 
 #endif  /* WIN_SPICE_OPTIONS_H */

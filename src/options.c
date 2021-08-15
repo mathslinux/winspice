@@ -22,10 +22,10 @@
 #include <glib.h>
 #include <spice.h>
 
-WinSpiceOption *winspice_options_new()
+Options *options_new()
 {
-    WinSpiceOption *options;
-    options = (WinSpiceOption *)g_malloc0(sizeof(WinSpiceOption));
+    Options *options;
+    options = (Options *)g_malloc0(sizeof(Options));
     if (!options) {
         return NULL;
     }
@@ -53,7 +53,7 @@ WinSpiceOption *winspice_options_new()
     return options;
 }
 
-char *winspice_options_get_string(WinSpiceOption *options, const char *key)
+char *options_get_string(Options *options, const char *key)
 {
     if (!options || !key) {
         return NULL;
@@ -67,7 +67,7 @@ char *winspice_options_get_string(WinSpiceOption *options, const char *key)
     return NULL;
 }
 
-int winspice_options_get_int(WinSpiceOption *options, const char *key)
+int options_get_int(Options *options, const char *key)
 {
     if (!options || !key) {
         return -1;
@@ -81,12 +81,12 @@ int winspice_options_get_int(WinSpiceOption *options, const char *key)
     return -1;
 }
 
-void winspice_options_free(WinSpiceOption *options)
+void options_destroy(Options *options)
 {
     g_free(options);
 }
 
 /* TODO: other options operations */
 /*
-bool winspice_options_get_bool();
+bool options_get_bool();
 */

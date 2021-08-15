@@ -19,49 +19,184 @@
 
 #include "session.h"
 
-WinSpiceSession *session_new(int argc, char **argv)
-{
-    WinSpiceSession *session = NULL;
+static bool mouse_server_mode = true;
+static guint32 fps = 30;
 
-    session = g_malloc0(sizeof(WinSpiceSession));
+static inline glong get_tick_count()
+{
+    gint64 tv;
+    tv = g_get_real_time();
+    return tv / 1000;
+}
+
+Session *session_new(int argc, char **argv)
+{
+    Session *session = NULL;
+
+    session = g_malloc0(sizeof(Session));
     if (!session) {
         goto failed;
     }
 
     session->app_path = g_strdup(argv[0]);
 
-    session->options = winspice_options_new();
+    /// options init
+    session->options = options_new();
     if (!session->options) {
         printf("Failed to create winspice option\n");
+        goto failed;
+    }
+
+    /// display init
+    session->display = display_new();
+    if (!session->display) {
+        printf("Failed to new display\n");
         goto failed;
     }
 
     return session;
 
 failed:
-    session_destroy(session);
+    if (session) {
+        session_destroy(session);
+    }
     return NULL;
 }
 
-void session_start(WinSpiceSession *session)
+static void display_update(Session *session)
 {
-    session->server = win_spice_server_new(session->options);
-    if (!session->server) {
+    //void *drawable;
+    uint8_t *bitmaps = NULL;
+    int pitch = 0;
+    WSpice *wspice = session->wspice;
+    Display *display = session->display;
+    WinSpiceInvalid invalid;
+
+    /**
+     * NOTE: In order to improve performance, bitmaps will be freed
+     * in wspice context
+     */
+    if (!display->get_invalid_bitmap(display, &bitmaps, &pitch)) {
+        return ;
+    }
+
+    memset(&invalid, 0, sizeof(invalid));
+    invalid.rect.left   = display->invalid.left;
+    invalid.rect.top    = display->invalid.top;
+    invalid.rect.right  = display->invalid.right;
+    invalid.rect.bottom = display->invalid.bottom;
+    invalid.bitmaps     = bitmaps;
+    invalid.pitch       = pitch;
+    wspice->handle_invalid_bitmaps(wspice, &invalid);
+
+    display->clear_invalid_region(display);
+}
+
+static void mouse_update(Session *session)
+{
+    WSpice *wspice = session->wspice;
+    Display *display = session->display;
+
+    if (!display->mouse_have_updates(display)) {
+        return ;
+    }
+
+    if (display->mouse_have_new_shape(display)) {
+        /// define mouse point
+        WinSpiceCursor *cursor = NULL;
+        if (display->mouse_get_new_shape(display, &cursor) != 0) {
+            return ;
+        }
+        /// TODO: 在 wspice 模块封装函数处理
+        pthread_mutex_lock(&wspice->lock);
+        wspice->hot_x = cursor->hot_x;
+        wspice->hot_y = cursor->hot_y;
+        if (cursor->ptr_type == DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MONOCHROME) {
+            /* FIXME: bug if type if DXGI_OUTDUPL_POINTER_SHAPE_TYPE_MONOCHROME */
+            wspice->ptr_type = SPICE_CURSOR_TYPE_MONO;
+        } else {
+            wspice->ptr_type = SPICE_CURSOR_TYPE_ALPHA;
+        }
+        g_free(wspice->ptr_move);
+        wspice->ptr_move = NULL;
+        wspice->ptr_define = create_cursor_update(wspice, cursor, 0);
+        pthread_mutex_unlock(&wspice->lock);
+        free(cursor);
+    } else if (!mouse_server_mode) {
+        /// mouse client mode
+        PTR_INFO *PtrInfo = display->PtrInfo; /* FIXME: use struct */
+        pthread_mutex_lock(&wspice->lock);
+        wspice->ptr_x = PtrInfo->Position.x;
+        wspice->ptr_y = PtrInfo->Position.y;
+        g_free(wspice->ptr_move);
+        wspice->ptr_move = create_cursor_update(wspice, NULL, display->FrameInfo.PointerPosition.Visible);
+        pthread_mutex_unlock(&wspice->lock);
+    }
+}
+
+static void *display_update_thread(void *arg)
+{
+    Session *session;
+    Display *display;
+    glong begin, end, diff;
+    guint32 rate = 1000 / fps;
+
+    session = (Session *)arg;
+    display = session->display;
+    while (1) {
+        int ret;
+        begin = get_tick_count();
+
+        ret = display->update_changes(display);
+        if (ret == 0) {
+            display_update(session);
+            mouse_update(session);
+            display->release_update_frame(display);
+        }
+
+        end = get_tick_count();
+        diff = end - begin;
+        if (diff < rate) {
+            g_usleep(1000 * (rate - diff));
+        }
+    }
+
+    return NULL;
+}
+
+void session_start(Session *session)
+{
+    pthread_t pid;
+
+    /// start spice server
+    /// note: wspice must run before display thread since display need to
+    /// wakeup spice server
+    session->wspice = wspice_new(session);
+    if (!session->wspice) {
         /// TODO: handle it.
         return ;
     }
-    session->server->start(session->server);
+    session->wspice->start(session->wspice);
+
+    /// start display thread
+    pthread_create(&pid, NULL, display_update_thread, session);
 }
 
-void session_destroy(WinSpiceSession *session)
+void session_destroy(Session *session)
 {
     if (session) {
         g_free(session->app_path);
         if (session->options) {
-            winspice_options_free(session->options);
+            options_destroy(session->options);
         }
-        if (session->server) {
-            win_spice_server_free(session->server);
+        if (session->display) {
+            display_destroy(session->display);
+        }
+        if (session->wspice) {
+            wspice_destroy(session->wspice);
+        }
+        if (session->app_path) {
+            g_free(session->app_path);
         }
         g_free(session);
     } 

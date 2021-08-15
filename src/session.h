@@ -21,21 +21,24 @@
 #ifndef WIN_SPICE_SESSION_H
 #define WIN_SPICE_SESSION_H
 
-#include "server.h"
+#include "wspice.h"
 #include "options.h"
 #include "gui.h"
 
-typedef struct WinSpiceSession {
-    WinSpiceOption *options;
-    WinSpiceServer *server;
-    WinSpiceGUI *gui;
+typedef struct Session {
+    Options *options;
+    WSpice *wspice;
+    GUI *gui;
 
     char *app_path;
-} WinSpiceSession;
 
-WinSpiceSession *session_new(int argc, char **argv);
-void session_start(WinSpiceSession *session);
-void session_destroy(WinSpiceSession *session);
+    /// display
+    Display *display;
+} Session;
+
+Session *session_new(int argc, char **argv);
+void session_start(Session *session);
+void session_destroy(Session *session);
 
 #endif  /* WIN_SPICE_SESSION_H */
 

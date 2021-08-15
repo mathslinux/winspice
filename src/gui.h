@@ -23,9 +23,9 @@
 #include <gtk/gtk.h>
 #include "options.h"
 
-typedef struct WinSpiceSession session;
+typedef struct Session session;
 
-typedef struct WinSpiceGUI {
+typedef struct GUI {
     GtkWidget *window;
     GtkWidget *main_box;
     GtkWidget *arguments_grid;
@@ -39,10 +39,10 @@ typedef struct WinSpiceGUI {
     GtkWidget *start_button;
     GtkWidget *disconnect_button;
     GtkWidget *button_box;
-} WinSpiceGUI;
+} GUI;
 
-WinSpiceGUI *gui_new(struct WinSpiceSession *session);
-void gui_run(WinSpiceGUI *gui);
-void gui_destroy(WinSpiceGUI *gui);
+GUI *gui_new(struct Session *session);
+void gui_run(GUI *gui);
+void gui_destroy(GUI *gui);
 
 #endif  /* WIN_SPICE_GUI_H */

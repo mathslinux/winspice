@@ -24,7 +24,7 @@
 
 #include <glib.h>
 #include <stdio.h>
-#include "server.h"
+#include "wspice.h"
 #include "gui.h"
 #include "session.h"
 
@@ -33,9 +33,9 @@
 
 int main(int argc, char *argv[])
 {
-    WinSpiceGUI *gui = NULL;
+    GUI *gui = NULL;
     int rc = 0;
-    WinSpiceSession *session = NULL;
+    Session *session = NULL;
 
     /* TODO: log_init */
     printf("winspice init\n");

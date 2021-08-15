@@ -17,14 +17,14 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef WIN_SPICE_WSPICE_H
-#define WIN_SPICE_WSPICE_H
+#ifndef WIN_SPICE_SERVER_H
+#define WIN_SPICE_SERVER_H
 
-#include <spice.h>
 #include <glib.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <pthread.h>
+#include <stdint.h>
+#include <spice.h>
+#include "display.h"
 #include "options.h"
 
 typedef struct SimpleSpiceCursor {
@@ -33,7 +33,30 @@ typedef struct SimpleSpiceCursor {
     QXLCursor cursor;
 } SimpleSpiceCursor;
 
-typedef struct WinSpice {
+typedef struct SimpleSpiceUpdate {
+    QXLDrawable drawable;
+    QXLImage image;
+    QXLCommandExt ext;
+    uint8_t *bitmaps;
+} SimpleSpiceUpdate;
+
+typedef struct WinSpiceInvalid {
+    QXLRect rect;
+    uint8_t *bitmaps;
+    int pitch;
+} WinSpiceInvalid;
+
+struct Session;
+
+typedef struct WSpice {
+    struct Session *session;
+
+    Options *options;
+
+    /// drawable queue
+    GAsyncQueue *drawable_queue;
+
+    // spice interface
     SpiceServer *server;
     QXLInstance qxl;
     SpiceTabletInstance tablet;
@@ -41,7 +64,6 @@ typedef struct WinSpice {
     bool emul0;
     SpiceKbdInstance kbd;
 
-    GAsyncQueue *drawable_queue;
     SimpleSpiceCursor *ptr_define;
     SimpleSpiceCursor *ptr_move;
     int ptr_x, ptr_y;
@@ -57,26 +79,16 @@ typedef struct WinSpice {
     int primary_width;
     int primary_height;
 
-    /* spice_context */
-    void (*start)(struct WinSpice *wspice);
-    void (*stop)(struct WinSpice *wspice);
-    void (*wakeup)(struct WinSpice *wspice);
-} WinSpice;
+    /// function
+    void (*start)(struct WSpice *wspice);
+    void (*stop)(struct WSpice *wspice);
+    void (*wakeup)(struct WSpice *wspice);
+    void (*handle_invalid_bitmaps)(struct WSpice *wspice, WinSpiceInvalid *invalid);
+} WSpice;
 
-/* cursor data format is 32bit RGBA */
-typedef struct WinSpiceCursor {
-    int                 width, height;
-    int                 hot_x, hot_y;
-    int                 ptr_type;
-    uint32_t            data[];
-} WinSpiceCursor;
+WSpice *wspice_new(struct Session *session);
+void wspice_destroy(WSpice *server);
+void *create_cursor_update(WSpice *wspice, WinSpiceCursor *c, int on);
+//void *bitmaps_to_drawable(uint8_t *bitmaps, QXLRect *rect, int pitch);
 
-void *bitmaps_to_drawable(uint8_t *bitmaps, QXLRect *rect, int bytes_per_line);
-void *create_cursor_update(WinSpice *wspice, WinSpiceCursor *c, int on);
-
-WinSpice *win_spice_new(WinSpiceOption *options, GAsyncQueue *drawable_queue,
-                        int primary_width, int primary_height);
-
-void win_spice_free(WinSpice *wspice);
-
-#endif  /* WIN_SPICE_WSPICE_H */
+#endif /* WIN_SPICE_SERVER_H */

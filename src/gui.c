@@ -5,8 +5,8 @@ static gboolean gui_has_init = FALSE;
 
 static void start_click(GtkButton *btn, gpointer data)
 {
-    WinSpiceSession *session = (WinSpiceSession *)data;
-    WinSpiceGUI *gui = session->gui;
+    Session *session = (Session *)data;
+    GUI *gui = session->gui;
     /// TODO: set sensitive if and only if the server starts successfully
     session_start(session);
     gtk_widget_set_sensitive(gui->start_button, FALSE);
@@ -15,13 +15,13 @@ static void start_click(GtkButton *btn, gpointer data)
 
 static void disconnect_click(GtkButton *btn, gpointer data)
 {
-    WinSpiceSession *session = (WinSpiceSession *)data;
-    WinSpiceGUI *gui = session->gui;
+    Session *session = (Session *)data;
+    GUI *gui = session->gui;
     gtk_label_set_text(GTK_LABEL(gui->status_label), "Waiting for client to connect ......");
     gtk_widget_set_sensitive(gui->disconnect_button, FALSE);
 }
 
-static void create_icon_widget(WinSpiceGUI *gui, WinSpiceSession *session)
+static void create_icon_widget(GUI *gui, Session *session)
 {
     char *icon_path;
     char *app_dir;
@@ -37,7 +37,7 @@ static void create_icon_widget(WinSpiceGUI *gui, WinSpiceSession *session)
     g_free(app_dir);
 }
 
-static void create_arguments_widget(WinSpiceGUI *gui, WinSpiceSession *session)
+static void create_arguments_widget(GUI *gui, Session *session)
 {
     char buf[128];
     GList *it;
@@ -81,7 +81,7 @@ static void create_arguments_widget(WinSpiceGUI *gui, WinSpiceSession *session)
     gtk_grid_attach(GTK_GRID(gui->arguments_grid), gui->compression_entry, 1, 2, 1, 1);
 }
 
-static void create_start_widget(WinSpiceGUI *gui, WinSpiceSession *session)
+static void create_start_widget(GUI *gui, Session *session)
 {
     gui->button_box = gtk_button_box_new(GTK_ORIENTATION_VERTICAL);
     gtk_box_set_spacing(GTK_BOX(gui->button_box), 10);
@@ -106,8 +106,8 @@ static void create_start_widget(WinSpiceGUI *gui, WinSpiceSession *session)
 #if 0
 int main(int argc, char *argv[])
 {
-    WinSpiceGUI gui;
-    WinSpiceOption *options = winspice_options_new();
+    GUI gui;
+    Options *options = options_new();
 
     gtk_init(&argc, &argv);
 
@@ -132,16 +132,16 @@ int main(int argc, char *argv[])
 }
 #endif
 
-WinSpiceGUI *gui_new(WinSpiceSession *session)
+GUI *gui_new(Session *session)
 {
-    WinSpiceGUI *gui;
+    GUI *gui;
 
     if (!gui_has_init) {
         gtk_init(NULL, NULL);
         gui_has_init = TRUE;
     }
 
-    gui = (WinSpiceGUI *)g_malloc0(sizeof(WinSpiceGUI));
+    gui = (GUI *)g_malloc0(sizeof(GUI));
     session->gui = gui;
 
     /// top window
@@ -163,12 +163,12 @@ WinSpiceGUI *gui_new(WinSpiceSession *session)
     return gui;
 }
 
-void gui_run(WinSpiceGUI *gui)
+void gui_run(GUI *gui)
 {
     gtk_main();
 }
 
-void gui_destroy(WinSpiceGUI *gui)
+void gui_destroy(GUI *gui)
 {
     /// TODO: destroy all child widget
     if (gui) {

@@ -17,7 +17,6 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "wspice.h"
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <stdio.h>
@@ -41,7 +40,7 @@ static ID3D11Texture2D *sStage = NULL;
  *           --> Create desktop duplication
  */
 
-static int create_device(WinDisplay *wdisplay)
+static int create_device(Display *display)
 {
     HRESULT hr;
     D3D_FEATURE_LEVEL featureLevel;
@@ -85,7 +84,7 @@ static int create_device(WinDisplay *wdisplay)
     return 0;
 }
 
-static int get_duplication(WinDisplay *wdisplay)
+static int get_duplication(Display *display)
 {
     HRESULT hr;
 
@@ -140,8 +139,8 @@ static int get_duplication(WinDisplay *wdisplay)
     /* FIXME: better way to get screen width? */
     if (pDesc->AttachedToDesktop) {
         RECT *pRect = &pDesc->DesktopCoordinates;
-        wdisplay->width = pRect->right - pRect->left;
-        wdisplay->height = pRect->bottom - pRect->top;
+        display->width = pRect->right - pRect->left;
+        display->height = pRect->bottom - pRect->top;
     } else {
         printf("FIXME: use better way to get output\n");
         return -1;
@@ -169,18 +168,18 @@ static int get_duplication(WinDisplay *wdisplay)
     return 0;
 }
 
-static int win_display_init(WinDisplay *wdisplay)
+static int display_init(Display *display)
 {
-    if (create_device(wdisplay) != 0) {
+    if (create_device(display) != 0) {
         return -1;
     }
-    if (get_duplication(wdisplay) != 0) {
+    if (get_duplication(display) != 0) {
         return -1;
     }
     return 0;
 }
 
-static void release_update_frame(WinDisplay *wdisplay)
+static void release_update_frame(Display *display)
 {
     if (gOutputDuplication) {
         HRESULT hr;
@@ -200,7 +199,7 @@ static void release_update_frame(WinDisplay *wdisplay)
     }
 }
 
-static void release_screen_bitmap(WinDisplay *wdisplay)
+static void release_screen_bitmap(Display *display)
 {
     if (surf) {
         surf->lpVtbl->Unmap(surf);
@@ -212,18 +211,18 @@ static void release_screen_bitmap(WinDisplay *wdisplay)
         sStage = NULL;
     }
 
-    wdisplay->accumulated_frames = 0;
-    wdisplay->total_metadata_buffer_size = 0;
+    display->accumulated_frames = 0;
+    display->total_metadata_buffer_size = 0;
 }
 
-static int update_changes(WinDisplay *wdisplay)
+static int update_changes(Display *display)
 {
     HRESULT hr = S_OK;
     IDXGIResource* DesktopResource = 0;
     DXGI_OUTDUPL_FRAME_INFO FrameInfo;
 
-    if (wdisplay->accumulated_frames > 0) {
-        release_screen_bitmap(wdisplay);
+    if (display->accumulated_frames > 0) {
+        release_screen_bitmap(display);
     }
 
     /// 截取屏幕数据，但是还不能直接访问原始数据
@@ -233,7 +232,7 @@ static int update_changes(WinDisplay *wdisplay)
         /// refer: https://docs.microsoft.com/zh-cn/windows/desktop/api/dxgi1_2/nf-dxgi1_2-idxgioutputduplication-acquirenextframe
         if (hr == DXGI_ERROR_ACCESS_LOST) {
             printf("DXGI lost, recreate it\n");
-			get_duplication(wdisplay);
+			get_duplication(display);
 			return -1;
         } else if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
             return -1;
@@ -248,25 +247,25 @@ static int update_changes(WinDisplay *wdisplay)
     DesktopResource = NULL;
     if (FAILED(hr)) {
         printf("Failed to QI for DesktopResource\n");
-        release_update_frame(wdisplay);
+        release_update_frame(display);
         return -1;
     }
-    wdisplay->accumulated_frames = FrameInfo.AccumulatedFrames;
-    wdisplay->total_metadata_buffer_size = FrameInfo.TotalMetadataBufferSize;
-    memcpy(&wdisplay->FrameInfo, &FrameInfo, sizeof(FrameInfo));
+    display->accumulated_frames = FrameInfo.AccumulatedFrames;
+    display->total_metadata_buffer_size = FrameInfo.TotalMetadataBufferSize;
+    memcpy(&display->FrameInfo, &FrameInfo, sizeof(FrameInfo));
 
     return 0;
 }
 
-static bool display_have_updates(WinDisplay *wdisplay)
+static bool display_have_updates(Display *display)
 {
-	if (wdisplay->accumulated_frames == 0)
+	if (display->accumulated_frames == 0)
 		return false;
 
     return true;
 }
 
-static int find_invalid_region(WinDisplay *wdisplay)
+static bool find_invalid_region(Display *display)
 {
     // 获取 dirty 区域
     HRESULT hr;
@@ -278,18 +277,18 @@ static int find_invalid_region(WinDisplay *wdisplay)
     RECT *invalid;
     RECT *pRect;
 
-    if (wdisplay->accumulated_frames == 0 || wdisplay->total_metadata_buffer_size == 0) {
+    if (display->accumulated_frames == 0 || display->total_metadata_buffer_size == 0) {
         printf("No accumulated frames\n");
-        return -1;
+        return false;
     }
 
-    dataBuffer = (BYTE *)malloc(wdisplay->total_metadata_buffer_size);
+    dataBuffer = (BYTE *)malloc(display->total_metadata_buffer_size);
     if (!dataBuffer) {
         printf("Failed to allocate memory for metadata");
         exit(1);
     }
 
-    bufSize = wdisplay->total_metadata_buffer_size;
+    bufSize = display->total_metadata_buffer_size;
     hr = gOutputDuplication->lpVtbl->GetFrameMoveRects(gOutputDuplication, bufSize, (DXGI_OUTDUPL_MOVE_RECT *)dataBuffer, &bufSize);
     if (FAILED(hr)) {
         printf("Failed to get frame move rects");
@@ -297,7 +296,7 @@ static int find_invalid_region(WinDisplay *wdisplay)
     }
 
     dirtyRects = dataBuffer + bufSize;
-    bufSize = wdisplay->total_metadata_buffer_size - bufSize;
+    bufSize = display->total_metadata_buffer_size - bufSize;
 
     hr = gOutputDuplication->lpVtbl->GetFrameDirtyRects(gOutputDuplication, bufSize, (RECT *)dirtyRects, &bufSize);
     if (FAILED(hr)) {
@@ -306,35 +305,35 @@ static int find_invalid_region(WinDisplay *wdisplay)
     }
     dirtyRectSize = bufSize / sizeof(RECT);
     pRect = (RECT *)dirtyRects;
-    invalid = &wdisplay->invalid;
+    invalid = &display->invalid;
     for (i = 0; i < dirtyRectSize; ++i) {
         UnionRect(invalid, invalid, pRect);
         ++pRect;
     }
     free(dataBuffer);
-    return 0;
+    return true;
 
 failed:
     if (dataBuffer) {
         free(dataBuffer);
     }
-    return -1;
+    return false;
 }
 
-static void clear_invalid_region(WinDisplay *wdisplay)
+static void clear_invalid_region(Display *display)
 {
-    SetRectEmpty(&wdisplay->invalid);
+    SetRectEmpty(&display->invalid);
 }
 
-static int get_screen_bitmap(WinDisplay *wdisplay, uint8_t **bitmap, int *pitch)
+static bool get_screen_bitmap(Display *display, uint8_t **bitmap, int *pitch)
 {
     if (!bitmap || !pitch) {
-        return -1;
+        return false;
     }
     HRESULT hr;
     D3D11_TEXTURE2D_DESC tDesc;
     D3D11_BOX box;
-    RECT *invalid = &wdisplay->invalid;
+    RECT *invalid = &display->invalid;
 
     tDesc.Width = (invalid->right - invalid->left);
     tDesc.Height = (invalid->bottom - invalid->top);
@@ -359,7 +358,7 @@ static int get_screen_bitmap(WinDisplay *wdisplay, uint8_t **bitmap, int *pitch)
     hr = gDevice->lpVtbl->CreateTexture2D(gDevice, &tDesc, NULL, &sStage);
     if (FAILED(hr)) {
         printf("Failed to CreateTexture2D: %#lX\n", hr);
-        return -1;
+        return false;
     }
 
     gContext->lpVtbl->CopySubresourceRegion(gContext, (ID3D11Resource*)sStage, 0,0,0,0, (ID3D11Resource*) gAcquiredDesktopImage, 0, &box);
@@ -367,7 +366,7 @@ static int get_screen_bitmap(WinDisplay *wdisplay, uint8_t **bitmap, int *pitch)
     hr = sStage->lpVtbl->QueryInterface(sStage, &IID_IDXGISurface, (void **)(&surf));
     if (FAILED(hr)) {
         printf("Failed to QI staging surface: %#lX\n", hr);
-        return -1;
+        return false;
     }
 
     /// copy bits to user space
@@ -375,20 +374,38 @@ static int get_screen_bitmap(WinDisplay *wdisplay, uint8_t **bitmap, int *pitch)
     hr = surf->lpVtbl->Map(surf, &mappedRect, DXGI_MAP_READ);
 
     if (SUCCEEDED(hr)) {
+//        printf("===%d\n", mappedRect.Pitch * tDesc.Height);
         *bitmap = (uint8_t *)malloc(mappedRect.Pitch * tDesc.Height);
         memcpy(*bitmap, mappedRect.pBits, mappedRect.Pitch * tDesc.Height);
         *pitch = mappedRect.Pitch;
     }
 
-    return 0;
+    return true;
+}
+
+bool get_invalid_bitmap(struct Display *display, uint8_t **bitmaps, int *pitch)
+{
+    if (!display->display_have_updates(display)) {
+        return false;
+    }
+
+    if (!display->find_invalid_region(display)) {
+        return false;
+    }
+
+    if (!display->get_screen_bitmap(display, bitmaps, pitch)) {
+        return false;
+    }
+
+    return true;
 }
 
 #define BPP         4
-static int ProcessMonoMask(WinDisplay *wdisplay, bool IsMono, PTR_INFO* PtrInfo, INT* PtrWidth, INT* PtrHeight, INT* PtrLeft, INT* PtrTop, BYTE** InitBuffer, D3D11_BOX* Box)
+static int ProcessMonoMask(Display *display, bool IsMono, PTR_INFO* PtrInfo, INT* PtrWidth, INT* PtrHeight, INT* PtrLeft, INT* PtrTop, BYTE** InitBuffer, D3D11_BOX* Box)
 {
     // Desktop dimensions
-    INT DesktopWidth = wdisplay->width;
-    INT DesktopHeight = wdisplay->height;
+    INT DesktopWidth = display->width;
+    INT DesktopHeight = display->height;
 
     // Pointer position
     INT GivenLeft = PtrInfo->Position.x;
@@ -537,10 +554,10 @@ static int ProcessMonoMask(WinDisplay *wdisplay, bool IsMono, PTR_INFO* PtrInfo,
     return 0;
 }
 
-static bool mouse_have_updates(WinDisplay *wdisplay)
+static bool mouse_have_updates(Display *display)
 {
-    DXGI_OUTDUPL_FRAME_INFO *FrameInfo = &wdisplay->FrameInfo;
-    PTR_INFO *PtrInfo = wdisplay->PtrInfo; /* FIXME: use struct */
+    DXGI_OUTDUPL_FRAME_INFO *FrameInfo = &display->FrameInfo;
+    PTR_INFO *PtrInfo = display->PtrInfo; /* FIXME: use struct */
     bool mouse_changed = false;
 
     // A non-zero mouse update timestamp indicates that there is a mouse position update and optionally a shape change
@@ -556,23 +573,19 @@ static bool mouse_have_updates(WinDisplay *wdisplay)
     return mouse_changed;
 }
 
-static bool mouse_have_new_shape(WinDisplay *wdisplay)
+static bool mouse_have_new_shape(Display *display)
 {
-    DXGI_OUTDUPL_FRAME_INFO *FrameInfo = &wdisplay->FrameInfo;
-
-    bool mouse_shape_changed = false;
-
-    if (FrameInfo->PointerShapeBufferSize > 0) {
-        mouse_shape_changed = true;
+    if (display->FrameInfo.PointerShapeBufferSize > 0) {
+        return true;
     }
 
-    return mouse_shape_changed;
+    return false;
 }
 
-static int mouse_get_new_shape(WinDisplay *wdisplay, WinSpiceCursor **cursor)
+static int mouse_get_new_shape(Display *display, WinSpiceCursor **cursor)
 {
-    DXGI_OUTDUPL_FRAME_INFO *FrameInfo = &wdisplay->FrameInfo;
-    PTR_INFO *PtrInfo = wdisplay->PtrInfo; /* FIXME: use struct */
+    DXGI_OUTDUPL_FRAME_INFO *FrameInfo = &display->FrameInfo;
+    PTR_INFO *PtrInfo = display->PtrInfo; /* FIXME: use struct */
     UINT BufferSizeRequired;
     WinSpiceCursor *c = NULL;
 
@@ -596,6 +609,7 @@ static int mouse_get_new_shape(WinDisplay *wdisplay, WinSpiceCursor **cursor)
         &(PtrInfo->ShapeInfo));
     if (FAILED(hr)) {
         printf("Failed to get mouse: %#lX\n", hr);
+        free(PtrInfo->PtrShapeBuffer);
         return -1;
     }
 
@@ -620,13 +634,14 @@ static int mouse_get_new_shape(WinDisplay *wdisplay, WinSpiceCursor **cursor)
         /* FIXME: fix later */
         BYTE* InitBuffer = NULL;
         printf("FIXME! UNIMPLEMENTED! %s\n", __func__);
-        ProcessMonoMask(wdisplay, false, PtrInfo, &PtrWidth, &PtrHeight, &PtrLeft, &PtrTop, &InitBuffer, &Box);
+        ProcessMonoMask(display, false, PtrInfo, &PtrWidth, &PtrHeight, &PtrLeft, &PtrTop, &InitBuffer, &Box);
         *cursor = malloc(sizeof(WinSpiceCursor) + PtrWidth * BPP * PtrHeight);
         memcpy((*cursor)->data, InitBuffer, PtrWidth * BPP * PtrHeight);
         free(InitBuffer);
         break;
     }
     default:
+        /// TODO: free resource and return
         break;
     }
 
@@ -641,48 +656,47 @@ static int mouse_get_new_shape(WinDisplay *wdisplay, WinSpiceCursor **cursor)
     return 0;
 }
 
-WinDisplay *win_display_new(GAsyncQueue *drawable_queue)
+Display *display_new()
 {
-    WinDisplay *wdisplay = (WinDisplay *)malloc(sizeof(WinDisplay));
-    if (!wdisplay) {
+    Display *display = (Display *)malloc(sizeof(Display));
+    if (!display) {
         return NULL;
     }
-    ZeroMemory(wdisplay, sizeof(*wdisplay));
+    ZeroMemory(display, sizeof(*display));
 
-    SetRectEmpty(&wdisplay->invalid);
+    SetRectEmpty(&display->invalid);
 
-    wdisplay->drawable_queue = drawable_queue;
-
-    wdisplay->update_changes = update_changes;
-    wdisplay->release_update_frame = release_update_frame;
-    wdisplay->display_have_updates = display_have_updates;
-    wdisplay->find_invalid_region = find_invalid_region;
-    wdisplay->clear_invalid_region = clear_invalid_region;
-    wdisplay->get_screen_bitmap = get_screen_bitmap;
-    wdisplay->PtrInfo = malloc(sizeof(PTR_INFO));
+    display->update_changes = update_changes;
+    display->release_update_frame = release_update_frame;
+    display->display_have_updates = display_have_updates;
+    display->find_invalid_region = find_invalid_region;
+    display->clear_invalid_region = clear_invalid_region;
+    display->get_screen_bitmap = get_screen_bitmap;
+    display->get_invalid_bitmap = get_invalid_bitmap;
+    display->PtrInfo = malloc(sizeof(PTR_INFO));
 
     /// mouse
-    wdisplay->mouse_have_updates = mouse_have_updates;
-    wdisplay->mouse_have_new_shape = mouse_have_new_shape;
-    wdisplay->mouse_get_new_shape = mouse_get_new_shape;
+    display->mouse_have_updates = mouse_have_updates;
+    display->mouse_have_new_shape = mouse_have_new_shape;
+    display->mouse_get_new_shape = mouse_get_new_shape;
 
-    if (win_display_init(wdisplay) != 0) {
-        printf("Failed to init win_display\n");
+    if (display_init(display) != 0) {
+        printf("Failed to init display\n");
         goto failed;
     }
 
-    return wdisplay;
+    return display;
 
 failed:
-    win_display_free(wdisplay);
+    display_destroy(display);
     return NULL;
 }
 
-void win_display_free(WinDisplay *wdisplay)
+void display_destroy(Display *display)
 {
-    if (!wdisplay) {
+    if (!display) {
         return;
     }
-    free(wdisplay);
+    free(display);
     printf("FIXME! %s UNIMPLEMENTED!\n", __FUNCTION__);
 }
