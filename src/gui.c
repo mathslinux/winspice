@@ -6,7 +6,56 @@ static gboolean gui_has_init = FALSE;
 static void start_click(GtkButton *btn, gpointer data)
 {
     Session *session = (Session *)data;
-    GUI *gui = session->gui;
+    GUI *gui;
+    Options *options;
+
+    GError *err = NULL;
+    guint64 port;
+    const char *password;
+    const char *port_text;
+    const char *compression_text;
+
+    gui = session->gui;
+    options = session->options;
+
+    /// parse port
+    port_text = gtk_entry_get_text(GTK_ENTRY(gui->port_entry));
+    if (g_ascii_string_to_unsigned(port_text, 10, 0, 10000, &port, &err)) {
+        options_set_int(options, "port", (int)port);
+    } else {
+        gtk_label_set_text(GTK_LABEL(gui->status_label), err->message);
+        g_error_free(err);
+        return ;
+    }
+
+    /// parse password
+    password = gtk_entry_get_text(GTK_ENTRY(gui->password_entry));
+    if (password && strlen(password) > 0) {
+        options_set_string(options, "password", password);
+    }
+
+    /// parse compression
+    compression_text = gtk_combo_box_text_get_active_text(
+        GTK_COMBO_BOX_TEXT(gui->compression_entry));
+    if (compression_text) {
+        options->compression_text = compression_text;
+        int index;
+        gpointer compression;
+        GList *l = g_list_find_custom(
+            options->compression_name_list,
+            compression_text,
+            (GCompareFunc)g_strcmp0);
+        if (l) {
+            index = g_list_position(options->compression_name_list, l);
+            if (index != -1) {
+                compression = g_list_nth_data(options->compression_list, index);
+                if (compression) {
+                    options_set_int(options, "compression", GPOINTER_TO_INT(compression));
+                }
+            }
+        }
+    }
+
     /// TODO: set sensitive if and only if the server starts successfully
     session_start(session);
     gtk_widget_set_sensitive(gui->start_button, FALSE);

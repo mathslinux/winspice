@@ -138,7 +138,6 @@ static int get_command(QXLInstance *qin G_GNUC_UNUSED, struct QXLCommandExt *ext
     }
 
     *ext = update->ext;
-
     return true;
 }
 
@@ -760,11 +759,21 @@ void *create_cursor_update(WSpice *wspice, WinSpiceCursor *c, int on)
 
 static void start(WSpice *wspice)
 {
+    int port;
+    const char *password;
+
+    port = options_get_int(wspice->options, "port");
+    password = options_get_string(wspice->options, "password");
     /// server
     wspice->server = spice_server_new();
-    spice_server_set_port(wspice->server, options_get_int(wspice->options, "port"));
+    spice_server_set_port(wspice->server, port);
+    if (password) {
+        spice_server_set_ticket(wspice->server, password, 0, 0, 0);
+    } else {
+        /// If no password is set, the server does not need to set up auth
+        spice_server_set_noauth(wspice->server);
+    }
     spice_server_set_addr(wspice->server, "0.0.0.0", 0);   /* FIXME:  */
-    spice_server_set_noauth(wspice->server);  /* FIXME:  */
     //spice_server_set_image_compression(wspice->server, SPICE_IMAGE_COMPRESSION_AUTO_GLZ);  /* FIXME:  */
 
     /// qxl
@@ -776,6 +785,12 @@ static void start(WSpice *wspice)
 
     /// keyboard
     wspice->kbd.base.sif = &kbd_interface.base;
+
+    /// from spice_server_init, spice server start to socket
+    /// socket, listen ...
+    printf("Start spice server with port: %d, compression: %s\n",
+           options_get_int(wspice->options, "port"),
+           wspice->options->compression_text);
 
     if (spice_server_init(wspice->server, &core_interface) != 0) {
         printf("failed to initialize spice server\n");

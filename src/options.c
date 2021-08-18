@@ -46,7 +46,6 @@ Options *options_new()
     options->compression_list = g_list_append(options->compression_list, GINT_TO_POINTER(SPICE_IMAGE_COMPRESSION_QUIC));
     options->compression_list = g_list_append(options->compression_list, GINT_TO_POINTER(SPICE_IMAGE_COMPRESSION_GLZ));
     options->compression_list = g_list_append(options->compression_list, GINT_TO_POINTER(SPICE_IMAGE_COMPRESSION_LZ));
-    options->compression_list = g_list_append(options->compression_list, GINT_TO_POINTER(SPICE_IMAGE_COMPRESSION_LZ));
     options->compression_list = g_list_append(options->compression_list, GINT_TO_POINTER(SPICE_IMAGE_COMPRESSION_LZ4));
     options->compression_list = g_list_append(options->compression_list, GINT_TO_POINTER(SPICE_IMAGE_COMPRESSION_OFF));
 
@@ -67,6 +66,20 @@ char *options_get_string(Options *options, const char *key)
     return NULL;
 }
 
+void options_set_string(Options *options, const char *key, const char *value)
+{
+    if (!options || !key || !value) {
+        return ;
+    }
+
+    if (!strcmp(key, "password")) {
+        options->password = g_strdup(value);
+    } else {
+        /// TODO: print a warning message
+        return ;
+    }
+}
+
 int options_get_int(Options *options, const char *key)
 {
     if (!options || !key) {
@@ -75,15 +88,33 @@ int options_get_int(Options *options, const char *key)
 
     if (!strcmp(key, "port")) {
         return options->port;
-    } else {
-        return -1;
+    } else if (!strcmp(key, "compression")) {
+        return options->compression;
     }
     return -1;
 }
 
+void options_set_int(Options *options, const char *key, int value)
+{
+    if (!options || !key) {
+        return ;
+    }
+
+    if (!strcmp(key, "port")) {
+        options->port = value;
+    } else if (!strcmp(key, "compression")) {
+        options->compression = value;
+    } else {
+        /// TODO: print a warning message
+    }
+}
+
 void options_destroy(Options *options)
 {
-    g_free(options);
+    if (options) {
+        g_free(options->password);
+        g_free(options);
+    }
 }
 
 /* TODO: other options operations */
