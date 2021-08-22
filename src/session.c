@@ -18,6 +18,7 @@
  */
 
 #include "session.h"
+#include "memory.h"
 
 static bool mouse_server_mode = true;
 static guint32 fps = 30;
@@ -33,12 +34,12 @@ Session *session_new(int argc, char **argv)
 {
     Session *session = NULL;
 
-    session = g_malloc0(sizeof(Session));
+    session = w_malloc0(sizeof(Session));
     if (!session) {
         goto failed;
     }
 
-    session->app_path = g_strdup(argv[0]);
+    session->app_path = w_strdup(argv[0]);
 
     /// options init
     session->options = options_new();
@@ -117,18 +118,18 @@ static void mouse_update(Session *session)
         } else {
             wspice->ptr_type = SPICE_CURSOR_TYPE_ALPHA;
         }
-        g_free(wspice->ptr_move);
+        w_free(wspice->ptr_move);
         wspice->ptr_move = NULL;
         wspice->ptr_define = create_cursor_update(wspice, cursor, 0);
         pthread_mutex_unlock(&wspice->lock);
-        free(cursor);
+        w_free(cursor);
     } else if (!mouse_server_mode) {
         /// mouse client mode
         PTR_INFO *PtrInfo = display->PtrInfo; /* FIXME: use struct */
         pthread_mutex_lock(&wspice->lock);
         wspice->ptr_x = PtrInfo->Position.x;
         wspice->ptr_y = PtrInfo->Position.y;
-        g_free(wspice->ptr_move);
+        w_free(wspice->ptr_move);
         wspice->ptr_move = create_cursor_update(wspice, NULL, display->FrameInfo.PointerPosition.Visible);
         pthread_mutex_unlock(&wspice->lock);
     }
@@ -185,7 +186,7 @@ void session_start(Session *session)
 void session_destroy(Session *session)
 {
     if (session) {
-        g_free(session->app_path);
+        w_free(session->app_path);
         if (session->options) {
             options_destroy(session->options);
         }
@@ -196,8 +197,8 @@ void session_destroy(Session *session)
             wspice_destroy(session->wspice);
         }
         if (session->app_path) {
-            g_free(session->app_path);
+            w_free(session->app_path);
         }
-        g_free(session);
+        w_free(session);
     } 
 }

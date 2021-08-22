@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include "wspice.h"
 #include "session.h"
+#include "memory.h"
 
 static void create_primary_surface(WSpice *wspice)
 {
@@ -42,9 +43,9 @@ static void create_primary_surface(WSpice *wspice)
     if (wspice->primary_surface_size < current_surface_size) {
         wspice->primary_surface_size  = current_surface_size;
         if (wspice->primary_surface) {
-            free(wspice->primary_surface);
+            w_free(wspice->primary_surface);
         }
-        wspice->primary_surface = (uint8_t *)malloc(wspice->primary_surface_size);
+        wspice->primary_surface = (uint8_t *)w_malloc(wspice->primary_surface_size);
     }
 
     memset(&surface, 0, sizeof(surface));
@@ -142,12 +143,12 @@ static void release_resource(QXLInstance *qin G_GNUC_UNUSED,
     switch (ext->cmd.type) {
     case QXL_CMD_DRAW:
         update = SPICE_CONTAINEROF(ext, SimpleSpiceUpdate, ext);
-        free(update->bitmaps);
-        free(update);
+        w_free(update->bitmaps);
+        w_free(update);
         break;
     case QXL_CMD_CURSOR:
         cursor = SPICE_CONTAINEROF(ext, SimpleSpiceCursor, ext);
-        g_free(cursor);
+        w_free(cursor);
         break;
     default:
         g_assert_not_reached();
@@ -198,7 +199,7 @@ static void async_complete(QXLInstance *qin G_GNUC_UNUSED, uint64_t cookie)
 {
     /* FIXME: handle all case */
     QXLMonitorsConfig *monitors = (QXLMonitorsConfig *)(uintptr_t)cookie;
-    free(monitors);
+    w_free(monitors);
 }
 
 static void update_area_complete(QXLInstance *qin G_GNUC_UNUSED,
@@ -299,7 +300,7 @@ static void timer_start(SpiceTimer *timer, uint32_t ms)
 static void timer_remove(SpiceTimer *timer)
 {
     timer_cancel(timer);
-    g_free(timer);
+    w_free(timer);
 }
 
 struct SpiceWatch {
@@ -385,7 +386,7 @@ static void watch_remove(SpiceWatch *watch)
     watch_update_mask(watch, 0);
 
     g_io_channel_unref(watch->channel);
-    g_free(watch);
+    w_free(watch);
 }
 
 static void channel_event(int event G_GNUC_UNUSED, SpiceChannelEventInfo *info G_GNUC_UNUSED)
@@ -419,7 +420,7 @@ static void *bitmaps_to_drawable(uint8_t *bitmaps, QXLRect *rect, int pitch)
     QXLCommand *cmd;
     int bw, bh;
 
-    update    = g_malloc0(sizeof(*update));
+    update    = w_malloc0(sizeof(*update));
     drawable  = &update->drawable;
     qxl_image = &update->image;
     cmd       = &update->ext.cmd;
@@ -471,7 +472,7 @@ static void handle_invalid_bitmaps(struct WSpice *wspice, WinSpiceInvalid *inval
         g_async_queue_push(wspice->drawable_queue, drawable);
         wspice->wakeup(wspice);
     } else {
-        g_free(invalid->bitmaps);
+        w_free(invalid->bitmaps);
     }
 }
 
@@ -703,7 +704,7 @@ void *create_cursor_update(WSpice *wspice, WinSpiceCursor *c, int on)
         }
     }
 
-    update   = g_malloc0(sizeof(*update) + size);
+    update   = w_malloc0(sizeof(*update) + size);
     ccmd     = &update->cmd;
     cursor   = &update->cursor;
     cmd      = &update->ext.cmd;
@@ -805,8 +806,7 @@ static void stop(WSpice *wspice)
 
 WSpice *wspice_new(struct Session *session)
 {
-    WSpice *wspice = (WSpice *)malloc(sizeof(WSpice));
-    memset(wspice, 0, sizeof(*wspice));
+    WSpice *wspice = (WSpice *)w_malloc(sizeof(WSpice));
     if (!wspice) {
         printf("failed to alloc memory for winspiceserver\n");
         goto failed;
@@ -846,7 +846,7 @@ void wspice_destroy(WSpice *wspice)
     if (!wspice) {
         return;
     }
-    free(wspice);
+    w_free(wspice);
     // TODO: destroy drawable_queue;
     printf("FIXME! %s UNIMPLEMENTED!\n", __FUNCTION__);
     return;

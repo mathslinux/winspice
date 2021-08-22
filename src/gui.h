@@ -22,6 +22,7 @@
 
 #include <gtk/gtk.h>
 #include "options.h"
+#include "memory.h"
 
 typedef struct Session session;
 

@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "display.h"
+#include "memory.h"
 
 static ID3D11Device *gDevice = NULL;
 static ID3D11DeviceContext *gContext = NULL;
@@ -282,7 +283,7 @@ static bool find_invalid_region(Display *display)
         return false;
     }
 
-    dataBuffer = (BYTE *)malloc(display->total_metadata_buffer_size);
+    dataBuffer = (BYTE *)w_malloc(display->total_metadata_buffer_size);
     if (!dataBuffer) {
         printf("Failed to allocate memory for metadata");
         exit(1);
@@ -310,12 +311,12 @@ static bool find_invalid_region(Display *display)
         UnionRect(invalid, invalid, pRect);
         ++pRect;
     }
-    free(dataBuffer);
+    w_free(dataBuffer);
     return true;
 
 failed:
     if (dataBuffer) {
-        free(dataBuffer);
+        w_free(dataBuffer);
     }
     return false;
 }
@@ -375,7 +376,7 @@ static bool get_screen_bitmap(Display *display, uint8_t **bitmap, int *pitch)
 
     if (SUCCEEDED(hr)) {
 //        printf("===%d\n", mappedRect.Pitch * tDesc.Height);
-        *bitmap = (uint8_t *)malloc(mappedRect.Pitch * tDesc.Height);
+        *bitmap = (uint8_t *)w_malloc(mappedRect.Pitch * tDesc.Height);
         memcpy(*bitmap, mappedRect.pBits, mappedRect.Pitch * tDesc.Height);
         *pitch = mappedRect.Pitch;
     }
@@ -488,8 +489,7 @@ static int ProcessMonoMask(Display *display, bool IsMono, PTR_INFO* PtrInfo, INT
     }
 
     // New mouseshape buffer
-    *InitBuffer = (BYTE *)malloc(*PtrWidth * *PtrHeight * BPP);
-    memset(*InitBuffer, 0, *PtrWidth * *PtrHeight * BPP);
+    *InitBuffer = (BYTE *)w_malloc0(*PtrWidth * *PtrHeight * BPP);
 
     UINT* InitBuffer32 = (UINT *)(*InitBuffer);
     UINT* Desktop32 = (UINT *)(MappedSurface.pBits);
@@ -598,7 +598,7 @@ static int mouse_get_new_shape(Display *display, WinSpiceCursor **cursor)
     Box.back  = 1;
 
     /* FIXME: memery cache? */
-    PtrInfo->PtrShapeBuffer = malloc(FrameInfo->PointerShapeBufferSize);
+    PtrInfo->PtrShapeBuffer = w_malloc(FrameInfo->PointerShapeBufferSize);
 
     // Get shape
     HRESULT hr = gOutputDuplication->lpVtbl->GetFramePointerShape(
@@ -609,7 +609,7 @@ static int mouse_get_new_shape(Display *display, WinSpiceCursor **cursor)
         &(PtrInfo->ShapeInfo));
     if (FAILED(hr)) {
         printf("Failed to get mouse: %#lX\n", hr);
-        free(PtrInfo->PtrShapeBuffer);
+        w_free(PtrInfo->PtrShapeBuffer);
         return -1;
     }
 
@@ -617,7 +617,7 @@ static int mouse_get_new_shape(Display *display, WinSpiceCursor **cursor)
     case DXGI_OUTDUPL_POINTER_SHAPE_TYPE_COLOR: {
         PtrWidth = PtrInfo->ShapeInfo.Width;
         PtrHeight = PtrInfo->ShapeInfo.Height;
-        *cursor = malloc(sizeof(WinSpiceCursor) + PtrInfo->ShapeInfo.Pitch * PtrHeight);
+        *cursor = w_malloc(sizeof(WinSpiceCursor) + PtrInfo->ShapeInfo.Pitch * PtrHeight);
         memcpy((*cursor)->data, PtrInfo->PtrShapeBuffer,  PtrInfo->ShapeInfo.Pitch * PtrHeight);
         break;
     }
@@ -626,7 +626,7 @@ static int mouse_get_new_shape(Display *display, WinSpiceCursor **cursor)
         PtrWidth = PtrInfo->ShapeInfo.Width;
         PtrHeight = PtrInfo->ShapeInfo.Height / 2;
         int bpl = (PtrWidth + 7) / 8;
-        *cursor = malloc(sizeof(WinSpiceCursor) + bpl * PtrInfo->ShapeInfo.Height);
+        *cursor = w_malloc(sizeof(WinSpiceCursor) + bpl * PtrInfo->ShapeInfo.Height);
         memcpy((*cursor)->data, PtrInfo->PtrShapeBuffer, bpl * PtrInfo->ShapeInfo.Height);
         break;
     }
@@ -635,9 +635,9 @@ static int mouse_get_new_shape(Display *display, WinSpiceCursor **cursor)
         BYTE* InitBuffer = NULL;
         printf("FIXME! UNIMPLEMENTED! %s\n", __func__);
         ProcessMonoMask(display, false, PtrInfo, &PtrWidth, &PtrHeight, &PtrLeft, &PtrTop, &InitBuffer, &Box);
-        *cursor = malloc(sizeof(WinSpiceCursor) + PtrWidth * BPP * PtrHeight);
+        *cursor = w_malloc(sizeof(WinSpiceCursor) + PtrWidth * BPP * PtrHeight);
         memcpy((*cursor)->data, InitBuffer, PtrWidth * BPP * PtrHeight);
-        free(InitBuffer);
+        w_free(InitBuffer);
         break;
     }
     default:
@@ -651,18 +651,17 @@ static int mouse_get_new_shape(Display *display, WinSpiceCursor **cursor)
     c->hot_x = PtrInfo->ShapeInfo.HotSpot.x;
     c->hot_y = PtrInfo->ShapeInfo.HotSpot.y;
     c->ptr_type = PtrInfo->ShapeInfo.Type;
-    free(PtrInfo->PtrShapeBuffer);
+    w_free(PtrInfo->PtrShapeBuffer);
 
     return 0;
 }
 
 Display *display_new()
 {
-    Display *display = (Display *)malloc(sizeof(Display));
+    Display *display = (Display *)w_malloc0(sizeof(Display));
     if (!display) {
         return NULL;
     }
-    ZeroMemory(display, sizeof(*display));
 
     SetRectEmpty(&display->invalid);
 
@@ -673,7 +672,7 @@ Display *display_new()
     display->clear_invalid_region = clear_invalid_region;
     display->get_screen_bitmap = get_screen_bitmap;
     display->get_invalid_bitmap = get_invalid_bitmap;
-    display->PtrInfo = malloc(sizeof(PTR_INFO));
+    display->PtrInfo = w_malloc(sizeof(PTR_INFO));
 
     /// mouse
     display->mouse_have_updates = mouse_have_updates;
@@ -697,6 +696,6 @@ void display_destroy(Display *display)
     if (!display) {
         return;
     }
-    free(display);
+    w_free(display);
     printf("FIXME! %s UNIMPLEMENTED!\n", __FUNCTION__);
 }

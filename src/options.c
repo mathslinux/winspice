@@ -21,11 +21,12 @@
 #include <string.h>
 #include <glib.h>
 #include <spice.h>
+#include "memory.h"
 
 Options *options_new()
 {
     Options *options;
-    options = (Options *)g_malloc0(sizeof(Options));
+    options = (Options *)w_malloc0(sizeof(Options));
     if (!options) {
         return NULL;
     }
@@ -73,7 +74,7 @@ void options_set_string(Options *options, const char *key, const char *value)
     }
 
     if (!strcmp(key, "password")) {
-        options->password = g_strdup(value);
+        options->password = w_strdup(value);
     } else {
         /// TODO: print a warning message
         return ;
@@ -112,8 +113,8 @@ void options_set_int(Options *options, const char *key, int value)
 void options_destroy(Options *options)
 {
     if (options) {
-        g_free(options->password);
-        g_free(options);
+        w_free(options->password);
+        w_free(options);
     }
 }
 

@@ -82,8 +82,8 @@ static void create_icon_widget(GUI *gui, Session *session)
     image = gtk_image_new_from_file(icon_path);
     gtk_box_pack_start(GTK_BOX(gui->main_box), image, TRUE, FALSE, 0);
 
-    g_free(icon_path);
-    g_free(app_dir);
+    w_free(icon_path);
+    w_free(app_dir);
 }
 
 static void create_arguments_widget(GUI *gui, Session *session)
@@ -190,7 +190,7 @@ GUI *gui_new(Session *session)
         gui_has_init = TRUE;
     }
 
-    gui = (GUI *)g_malloc0(sizeof(GUI));
+    gui = (GUI *)w_malloc0(sizeof(GUI));
     session->gui = gui;
 
     /// top window
@@ -221,6 +221,6 @@ void gui_destroy(GUI *gui)
 {
     /// TODO: destroy all child widget
     if (gui) {
-        g_free(gui);
+        w_free(gui);
     }
 }

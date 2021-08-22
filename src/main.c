@@ -27,9 +27,14 @@
 #include "wspice.h"
 #include "gui.h"
 #include "session.h"
+#include "memory.h"
 
 /// FIXME: ugly hack
 /// save application path globally
+
+#ifdef WIN_SPICE_DEBUG
+FILE *fp_dbg;
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -39,6 +44,12 @@ int main(int argc, char *argv[])
 
     /* TODO: log_init */
     printf("winspice init\n");
+#ifdef WIN_SPICE_DEBUG
+    fp_dbg = fopen("dbg.txt", "w");
+    if (!fp_dbg) {
+        printf("Failed to open debug log\n");
+    }
+#endif
 
     session = session_new(argc, argv);
     if (!session) {
