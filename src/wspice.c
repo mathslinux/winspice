@@ -30,24 +30,6 @@
 #include "wspice.h"
 #include "session.h"
 
-static int send_monitors_config(WSpice *wspice)
-{
-    QXLMonitorsConfig *monitors = calloc(1, sizeof(QXLMonitorsConfig) + sizeof(QXLHead));
-    if (!monitors)
-        return -1;
-
-    monitors->count = 1;
-    monitors->max_allowed = 1;
-    monitors->heads[0].id = 0;
-    monitors->heads[0].surface_id = 0;
-    monitors->heads[0].width = wspice->primary_width;
-    monitors->heads[0].height = wspice->primary_height;
-
-    spice_qxl_monitors_config_async(&wspice->qxl, (uintptr_t)monitors, 0, (uintptr_t)monitors);
-
-    return 0;
-}
-
 static void create_primary_surface(WSpice *wspice)
 {
     QXLDevSurfaceCreate surface;
@@ -78,7 +60,6 @@ static void create_primary_surface(WSpice *wspice)
     surface.group_id   = 0;
 
     spice_qxl_create_primary_surface(&wspice->qxl, 0, &surface);
-    send_monitors_config(wspice);
 }
 
 static void attache_worker(QXLInstance *qin, QXLWorker *_qxl_worker)
