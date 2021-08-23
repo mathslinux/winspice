@@ -217,6 +217,8 @@ void session_stop(Session *session)
 void session_destroy(Session *session)
 {
     if (session) {
+        session_stop(session);
+
         if (session->display) {
             display_destroy(session->display);
         }
@@ -234,5 +236,5 @@ void session_destroy(Session *session)
         }
 
         w_free(session);
-    } 
+    }
 }
