@@ -74,6 +74,9 @@ void options_set_string(Options *options, const char *key, const char *value)
     }
 
     if (!strcmp(key, "password")) {
+        if (options->password) {
+            w_free(options->password);
+        }
         options->password = w_strdup(value);
     } else {
         /// TODO: print a warning message
@@ -113,6 +116,8 @@ void options_set_int(Options *options, const char *key, int value)
 void options_destroy(Options *options)
 {
     if (options) {
+        g_list_free(options->compression_list);
+        g_list_free(options->compression_name_list);
         w_free(options->password);
         w_free(options);
     }

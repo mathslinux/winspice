@@ -672,7 +672,7 @@ Display *display_new()
     display->clear_invalid_region = clear_invalid_region;
     display->get_screen_bitmap = get_screen_bitmap;
     display->get_invalid_bitmap = get_invalid_bitmap;
-    display->PtrInfo = w_malloc(sizeof(PTR_INFO));
+    display->PtrInfo = w_malloc0(sizeof(PTR_INFO));
 
     /// mouse
     display->mouse_have_updates = mouse_have_updates;
@@ -697,5 +697,4 @@ void display_destroy(Display *display)
         return;
     }
     w_free(display);
-    printf("FIXME! %s UNIMPLEMENTED!\n", __FUNCTION__);
 }

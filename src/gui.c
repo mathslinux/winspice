@@ -197,6 +197,7 @@ GUI *gui_new(Session *session)
     gui->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(gui->window), "Window Spice Server");
     gtk_window_set_resizable(GTK_WINDOW(gui->window), FALSE);
+    g_signal_connect(gui->window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
 
     /// main panel
     gui->main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);

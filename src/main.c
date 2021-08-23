@@ -68,11 +68,13 @@ int main(int argc, char *argv[])
     gui_run(gui);
 
 quit:
-    if (session) {
-        session_destroy(session);
-    }
+    printf("winspice exit\n");
     if (gui) {
         gui_destroy(gui);
+    }
+
+    if (session) {
+        session_destroy(session);
     }
 
     return rc;

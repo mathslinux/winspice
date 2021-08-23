@@ -800,13 +800,28 @@ static void start(WSpice *wspice)
 
 static void stop(WSpice *wspice)
 {
+    while (1) {
+        /**
+         * display update thread has exited, just remove all data in
+         * drawable_queue.
+         */
+        void *data;
+        data = g_async_queue_try_pop(wspice->drawable_queue);
+        if (data) {
+            w_free(data);
+        } else {
+            break;
+        }
+    }
+
     spice_server_destroy(wspice->server);
+
     wspice->server = NULL;
 }
 
 WSpice *wspice_new(struct Session *session)
 {
-    WSpice *wspice = (WSpice *)w_malloc(sizeof(WSpice));
+    WSpice *wspice = (WSpice *)w_malloc0(sizeof(WSpice));
     if (!wspice) {
         printf("failed to alloc memory for winspiceserver\n");
         goto failed;
@@ -843,11 +858,18 @@ failed:
 
 void wspice_destroy(WSpice *wspice)
 {
-    if (!wspice) {
-        return;
+    if (wspice) {
+        /// destroy lock
+        pthread_mutex_destroy(&wspice->lock);
+
+        /// destroy resources allocated for drawable_queue
+        if (wspice->drawable_queue) {
+            g_async_queue_unref(wspice->drawable_queue);
+        }
+
+        /// TODO: free ptr_define and ptr_move
+
+        /// destroy wspice object
+        w_free(wspice);
     }
-    w_free(wspice);
-    // TODO: destroy drawable_queue;
-    printf("FIXME! %s UNIMPLEMENTED!\n", __FUNCTION__);
-    return;
 }

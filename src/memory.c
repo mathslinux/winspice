@@ -37,7 +37,7 @@ static void memory_track(
     if (fp_dbg) {
         static char buf[256];
         snprintf(buf, sizeof(buf), "[%s:%d %s]: %p:%d\n",
-                 __FILE__, __LINE__, __FUNCTION__, pointer, n_bytes);
+                 file, line, func, pointer, n_bytes);
         fwrite(&buf, strlen(buf), 1, fp_dbg);
     }
 #endif // WIN_SPICE_DEBUG

@@ -49,12 +49,26 @@ Session *session_new(int argc, char **argv)
     }
 
     /// display init
+    session->update_thread_running = FALSE;
     session->display = display_new();
     if (!session->display) {
         printf("Failed to new display\n");
         goto failed;
     }
 
+    /**
+     * NOTE: wpice can only be initialized after the display is initialized,
+     * because it needs to get some data from the display when it is
+     * initialized, such as primary_width.
+     */
+    /// wspice init:
+    session->wspice = wspice_new(session);
+    if (!session->wspice) {
+        printf("Failed to new wspice\n");
+        goto failed;
+    }
+
+    session->running = FALSE;
     return session;
 
 failed:
@@ -144,7 +158,8 @@ static void *display_update_thread(void *arg)
 
     session = (Session *)arg;
     display = session->display;
-    while (1) {
+    session->update_thread_running = TRUE;
+    while (session->running) {
         int ret;
         begin = get_tick_count();
 
@@ -162,6 +177,8 @@ static void *display_update_thread(void *arg)
         }
     }
 
+    session->update_thread_running = FALSE;
+
     return NULL;
 }
 
@@ -169,36 +186,55 @@ void session_start(Session *session)
 {
     pthread_t pid;
 
+    session->running = TRUE;
     /// start spice server
     /// note: wspice must run before display thread since display need to
     /// wakeup spice server
-    session->wspice = wspice_new(session);
-    if (!session->wspice) {
-        /// TODO: handle it.
-        return ;
-    }
     session->wspice->start(session->wspice);
 
     /// start display thread
     pthread_create(&pid, NULL, display_update_thread, session);
 }
 
+void session_stop(Session *session)
+{
+    /// stop display thread
+    session->running = FALSE;
+    if (session->update_thread_running) {
+        /**
+         * For convenience, only a bool variable update_thread_running
+         * is used here to control the start or stop of the update thread,
+         * instead of using the pthread_cancel related function.
+         * We must ensure that the thread has exited here.
+         */
+        g_usleep(1000 * 10);
+    }
+
+    /// stop wspice thread
+    session->wspice->stop(session->wspice);
+}
+
 void session_destroy(Session *session)
 {
     if (session) {
-        w_free(session->app_path);
-        if (session->options) {
-            options_destroy(session->options);
-        }
         if (session->display) {
             display_destroy(session->display);
         }
+
         if (session->wspice) {
             wspice_destroy(session->wspice);
         }
+
         if (session->app_path) {
             w_free(session->app_path);
         }
+
+        if (session->options) {
+            options_destroy(session->options);
+        }
+
+        w_free(session->app_path);
+
         w_free(session);
     } 
 }

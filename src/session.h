@@ -32,12 +32,16 @@ typedef struct Session {
 
     char *app_path;
 
+    gboolean running;
+
     /// display
+    gboolean update_thread_running;
     Display *display;
 } Session;
 
 Session *session_new(int argc, char **argv);
 void session_start(Session *session);
+void session_stop(Session *session);
 void session_destroy(Session *session);
 
 #endif  /* WIN_SPICE_SESSION_H */
