@@ -233,8 +233,6 @@ void session_destroy(Session *session)
             options_destroy(session->options);
         }
 
-        w_free(session->app_path);
-
         w_free(session);
     } 
 }

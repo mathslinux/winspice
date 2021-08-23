@@ -836,7 +836,6 @@ WSpice *wspice_new(struct Session *session)
     pthread_mutex_init(&wspice->lock, NULL);
 
     /// primary_surface
-    wspice->primary_surface = NULL;
     wspice->primary_surface_size = 0;
     wspice->primary_width = session->display->width;
     wspice->primary_height = session->display->height;
@@ -869,6 +868,9 @@ void wspice_destroy(WSpice *wspice)
 
         /// TODO: free ptr_define and ptr_move
 
+        if (wspice->primary_surface) {
+            w_free(wspice->primary_surface);
+        }
         /// destroy wspice object
         w_free(wspice);
     }

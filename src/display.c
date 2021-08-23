@@ -652,6 +652,7 @@ static int mouse_get_new_shape(Display *display, WinSpiceCursor **cursor)
     c->hot_y = PtrInfo->ShapeInfo.HotSpot.y;
     c->ptr_type = PtrInfo->ShapeInfo.Type;
     w_free(PtrInfo->PtrShapeBuffer);
+    PtrInfo->PtrShapeBuffer = NULL;
 
     return 0;
 }
@@ -693,8 +694,8 @@ failed:
 
 void display_destroy(Display *display)
 {
-    if (!display) {
-        return;
+    if (display) {
+        w_free(display->PtrInfo);
+        w_free(display);
     }
-    w_free(display);
 }
