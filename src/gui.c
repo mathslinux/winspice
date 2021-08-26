@@ -58,6 +58,9 @@ static void start_click(GtkButton *btn, gpointer data)
 
     /// TODO: set sensitive if and only if the server starts successfully
     session_start(session);
+    gtk_widget_set_sensitive(gui->port_entry, FALSE);
+    gtk_widget_set_sensitive(gui->password_entry, FALSE);
+    gtk_widget_set_sensitive(gui->compression_entry, FALSE);
     gtk_widget_set_sensitive(gui->start_button, FALSE);
     gtk_label_set_text(GTK_LABEL(gui->status_label), "Waiting for client to connect ......");
 }
