@@ -40,9 +40,14 @@ typedef struct Session {
 } Session;
 
 Session *session_new(int argc, char **argv);
+void session_destroy(Session *session);
+
 void session_start(Session *session);
 void session_stop(Session *session);
-void session_destroy(Session *session);
+
+void session_disconnect_client(Session *session);
+void session_client_connected(Session *session);
+void session_client_disconnected(Session *session);
 
 #endif  /* WIN_SPICE_SESSION_H */
 

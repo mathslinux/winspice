@@ -44,6 +44,8 @@ typedef struct GUI {
 
 GUI *gui_new(struct Session *session);
 void gui_run(GUI *gui);
+void gui_client_connected(GUI *gui);
+void gui_client_disconnected(GUI *gui);
 void gui_destroy(GUI *gui);
 
 #endif  /* WIN_SPICE_GUI_H */

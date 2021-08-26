@@ -84,6 +84,7 @@ typedef struct WSpice {
     void (*stop)(struct WSpice *wspice);
     void (*wakeup)(struct WSpice *wspice);
     void (*handle_invalid_bitmaps)(struct WSpice *wspice, WinSpiceInvalid *invalid);
+    void (*disconnect_client)(struct WSpice *wspice);
 } WSpice;
 
 WSpice *wspice_new(struct Session *session);

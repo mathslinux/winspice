@@ -31,6 +31,14 @@
 #include "session.h"
 #include "memory.h"
 
+/**
+ * Some callback functions called by libspice have no way of passing back
+ * a data pointer. So the use of global variables is inevitable. Such as
+ * channel_event.
+ * 
+ */
+Session *win_spice_session = NULL;
+
 static void create_primary_surface(WSpice *wspice)
 {
     QXLDevSurfaceCreate surface;
@@ -389,9 +397,19 @@ static void watch_remove(SpiceWatch *watch)
     w_free(watch);
 }
 
-static void channel_event(int event G_GNUC_UNUSED, SpiceChannelEventInfo *info G_GNUC_UNUSED)
+static void channel_event(int event, SpiceChannelEventInfo *info)
 {
-    printf("FIXME! UNIMPLEMENTED! %s\n", __func__);
+    if (event == SPICE_CHANNEL_EVENT_INITIALIZED && info->type == SPICE_CHANNEL_MAIN) {
+        session_client_connected(win_spice_session);
+    }
+    /**
+     * FIXME: Due to a problem with our code, when the client disconnects, we can't
+     * be notified immediately. So we temporarily use the connection status
+     * of the display channel to judge whether the client is disconnected,
+     * we should use the main channel status to judge later.
+     */
+    if (event == SPICE_CHANNEL_EVENT_DISCONNECTED && info->type == SPICE_CHANNEL_DISPLAY)
+        session_client_disconnected(win_spice_session);
 }
 
 static SpiceCoreInterface core_interface = {
@@ -749,7 +767,7 @@ static void start(WSpice *wspice)
     /// server
     wspice->server = spice_server_new();
     spice_server_set_port(wspice->server, port);
-    if (password) {
+    if (password && strlen(password)) {
         spice_server_set_ticket(wspice->server, password, 0, 0, 0);
     } else {
         /// If no password is set, the server does not need to set up auth
@@ -819,6 +837,28 @@ static void stop(WSpice *wspice)
     wspice->server = NULL;
 }
 
+void disconnect_client(struct WSpice *wspice)
+{
+    const char *password;
+
+    password = options_get_string(wspice->options, "password");
+
+    /**
+     * libspice does not export a function that can disconnect the client.
+     * In order to solve this problem, we call spice_xxx_auth again and set
+     * the disconnect_if_connected parameter to true
+     */
+    spice_server_set_ticket(wspice->server, password, 0, 0, TRUE);
+
+    /**
+     * If password is not provided by user, do not set the
+     * authentication method
+     */
+    if (!password || strlen(password) == 0) {
+        spice_server_set_noauth(wspice->server);
+    }
+}
+
 WSpice *wspice_new(struct Session *session)
 {
     WSpice *wspice = (WSpice *)w_malloc0(sizeof(WSpice));
@@ -828,6 +868,8 @@ WSpice *wspice_new(struct Session *session)
     }
 
     wspice->session = session;
+    win_spice_session = wspice->session;
+
     wspice->options = session->options;
 
     /// drawable_queue init
@@ -845,6 +887,7 @@ WSpice *wspice_new(struct Session *session)
     wspice->stop = stop;
     wspice->wakeup = wakeup;
     wspice->handle_invalid_bitmaps = handle_invalid_bitmaps;
+    wspice->disconnect_client = disconnect_client;
 
     return wspice;
 

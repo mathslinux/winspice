@@ -66,6 +66,29 @@ static void disconnect_click(GtkButton *btn, gpointer data)
 {
     Session *session = (Session *)data;
     GUI *gui = session->gui;
+
+    session_disconnect_client(session);
+
+    gtk_label_set_text(GTK_LABEL(gui->status_label), "Waiting for client to connect ......");
+    gtk_widget_set_sensitive(gui->disconnect_button, FALSE);
+}
+
+void gui_client_connected(GUI *gui)
+{
+    if (!gui) {
+        return ;
+    }
+
+    gtk_label_set_text(GTK_LABEL(gui->status_label), "Connection established");
+    gtk_widget_set_sensitive(gui->disconnect_button, TRUE);
+}
+
+void gui_client_disconnected(GUI *gui)
+{
+    if (!gui) {
+        return ;
+    }
+
     gtk_label_set_text(GTK_LABEL(gui->status_label), "Waiting for client to connect ......");
     gtk_widget_set_sensitive(gui->disconnect_button, FALSE);
 }

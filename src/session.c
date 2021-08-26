@@ -137,6 +137,7 @@ static void mouse_update(Session *session)
         wspice->ptr_define = create_cursor_update(wspice, cursor, 0);
         pthread_mutex_unlock(&wspice->lock);
         w_free(cursor);
+        wspice->wakeup(wspice);
     } else if (!mouse_server_mode) {
         /// mouse client mode
         PTR_INFO *PtrInfo = display->PtrInfo; /* FIXME: use struct */
@@ -146,6 +147,7 @@ static void mouse_update(Session *session)
         w_free(wspice->ptr_move);
         wspice->ptr_move = create_cursor_update(wspice, NULL, display->FrameInfo.PointerPosition.Visible);
         pthread_mutex_unlock(&wspice->lock);
+        wspice->wakeup(wspice);
     }
 }
 
@@ -212,6 +214,42 @@ void session_stop(Session *session)
 
     /// stop wspice thread
     session->wspice->stop(session->wspice);
+}
+
+void session_disconnect_client(Session *session)
+{
+    WSpice *wspice;
+
+    if (!session || !session->wspice) {
+        return;
+    }
+    wspice = session->wspice;
+
+    wspice->disconnect_client(wspice);
+}
+
+void session_client_connected(Session *session)
+{
+    GUI *gui;
+
+    if (!session || !session->gui) {
+        return ;
+    }
+    gui = session->gui;
+
+    gui_client_connected(gui);
+}
+
+void session_client_disconnected(Session *session)
+{
+    GUI *gui;
+
+    if (!session || !session->gui) {
+        return ;
+    }
+    gui = session->gui;
+
+    gui_client_disconnected(gui);
 }
 
 void session_destroy(Session *session)
