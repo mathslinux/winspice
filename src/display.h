@@ -44,7 +44,10 @@ typedef struct WinSpiceCursor {
     uint32_t            data[];
 } WinSpiceCursor;
 
+typedef void (*handle_resize_cb)(void *data);
+
 typedef struct Display {
+    /// TODO: provide get/set_width
     uint32_t width;
     uint32_t height;
     uint32_t accumulated_frames;
@@ -64,9 +67,15 @@ typedef struct Display {
     bool (*mouse_have_updates)(struct Display *display);
     bool (*mouse_have_new_shape)(struct Display *display);
     int (*mouse_get_new_shape)(struct Display *display, WinSpiceCursor **cursor);
+
+    /// callback funcs for handle display event
+    void (*handle_resize_cb)(void *data);
+    void *userdata;
 } Display;
 
 Display *display_new();
 void display_destroy(Display *display);
+void register_handle_resize_cb(Display *display, handle_resize_cb func,
+                               void *userdata);
 
 #endif  /* WIN_SPCIE_DISPLAY_H */

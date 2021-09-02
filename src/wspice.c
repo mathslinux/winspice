@@ -71,6 +71,11 @@ static void create_primary_surface(WSpice *wspice)
     spice_qxl_create_primary_surface(&wspice->qxl, 0, &surface);
 }
 
+static void destroy_primary_surface(WSpice *wspice)
+{
+    spice_qxl_destroy_primary_surface(&wspice->qxl, 0);
+}
+
 static void attache_worker(QXLInstance *qin, QXLWorker *_qxl_worker)
 {
     static QXLWorker *qxl_worker = NULL;
@@ -225,13 +230,6 @@ static int client_monitors_config(QXLInstance *qin G_GNUC_UNUSED,
     return 0;
 }
 
-static void set_client_capabilities(QXLInstance *qin G_GNUC_UNUSED,
-                                    uint8_t client_present G_GNUC_UNUSED,
-                                    uint8_t caps[58] G_GNUC_UNUSED)
-{
-    printf("FIXME! UNIMPLEMENTED! %s\n", __func__);
-}
-
 static QXLInterface dpy_interface = {
     .base = {
         .type = SPICE_INTERFACE_QXL,
@@ -254,8 +252,7 @@ static QXLInterface dpy_interface = {
     .async_complete = async_complete,
     .update_area_complete = update_area_complete,
     .client_monitors_config = client_monitors_config,
-//    .set_client_capabilities = set_client_capabilities,
-    .set_client_capabilities = set_client_capabilities,
+    .set_client_capabilities = NULL,
 };
 
 struct SpiceTimer {
@@ -837,6 +834,35 @@ static void stop(WSpice *wspice)
     wspice->server = NULL;
 }
 
+
+static void handle_resize(struct WSpice *wspice)
+{
+    wspice->destroy_primary_surface(wspice);
+
+    /// release all bitmap data queued in list
+    while (1) {
+        void *data;
+        data = g_async_queue_try_pop(wspice->drawable_queue);
+        if (data) {
+            w_free(data);
+        } else {
+            break;
+        }
+    }
+
+    wspice->create_primary_surface(wspice);
+}
+
+static void set_screen_size(struct WSpice *wspice, int width, int height)
+{
+    if (width > 0 && height > 0) {
+        wspice->primary_width = width;
+        wspice->primary_height = height;
+    }
+
+}
+
+
 void disconnect_client(struct WSpice *wspice)
 {
     const char *password;
@@ -879,8 +905,7 @@ WSpice *wspice_new(struct Session *session)
 
     /// primary_surface
     wspice->primary_surface_size = 0;
-    wspice->primary_width = session->display->width;
-    wspice->primary_height = session->display->height;
+    set_screen_size(wspice, session->display->width, session->display->height);
 
     /// function
     wspice->start = start;
@@ -888,6 +913,10 @@ WSpice *wspice_new(struct Session *session)
     wspice->wakeup = wakeup;
     wspice->handle_invalid_bitmaps = handle_invalid_bitmaps;
     wspice->disconnect_client = disconnect_client;
+    wspice->handle_resize = handle_resize;
+    wspice->create_primary_surface = create_primary_surface;
+    wspice->destroy_primary_surface = destroy_primary_surface;
+    wspice->set_screen_size = set_screen_size;
 
     return wspice;
 

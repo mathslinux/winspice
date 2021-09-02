@@ -140,8 +140,16 @@ static int get_duplication(Display *display)
     /* FIXME: better way to get screen width? */
     if (pDesc->AttachedToDesktop) {
         RECT *pRect = &pDesc->DesktopCoordinates;
-        display->width = pRect->right - pRect->left;
-        display->height = pRect->bottom - pRect->top;
+        int screen_width = pRect->right - pRect->left;
+        int screen_height = pRect->bottom - pRect->top;
+        if (display->width != screen_width
+            || display->height != screen_height) {
+            display->width = screen_width;
+            display->height = screen_height;
+            if (display->handle_resize_cb) {
+                display->handle_resize_cb(display->userdata);
+            }
+        }
     } else {
         printf("FIXME: use better way to get output\n");
         return -1;
@@ -680,6 +688,9 @@ Display *display_new()
     display->mouse_have_new_shape = mouse_have_new_shape;
     display->mouse_get_new_shape = mouse_get_new_shape;
 
+    /// callback func
+    display->handle_resize_cb = NULL;
+
     if (display_init(display) != 0) {
         printf("Failed to init display\n");
         goto failed;
@@ -698,4 +709,11 @@ void display_destroy(Display *display)
         w_free(display->PtrInfo);
         w_free(display);
     }
+}
+
+void register_handle_resize_cb(Display *display, handle_resize_cb func,
+                               void *userdata)
+{
+    display->handle_resize_cb = func;
+    display->userdata = userdata;
 }

@@ -85,6 +85,10 @@ typedef struct WSpice {
     void (*wakeup)(struct WSpice *wspice);
     void (*handle_invalid_bitmaps)(struct WSpice *wspice, WinSpiceInvalid *invalid);
     void (*disconnect_client)(struct WSpice *wspice);
+    void (*handle_resize)(struct WSpice *wspice);
+    void (*create_primary_surface)(struct WSpice *wspice);
+    void (*destroy_primary_surface)(struct WSpice *wspice);
+    void (*set_screen_size)(struct WSpice *wspice, int width, int height);
 } WSpice;
 
 WSpice *wspice_new(struct Session *session);

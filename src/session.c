@@ -30,6 +30,20 @@ static inline glong get_tick_count()
     return tv / 1000;
 }
 
+static void session_handle_resize(void *userdata)
+{
+    Session *session = (Session *)userdata;
+    WSpice *wspice;
+
+    wspice = session->wspice;
+    if (wspice) {
+        /// TODO:
+        wspice->set_screen_size(wspice, session->display->width,
+                                session->display->height);
+        wspice->handle_resize(wspice);
+    }
+}
+
 Session *session_new(int argc, char **argv)
 {
     Session *session = NULL;
@@ -55,6 +69,7 @@ Session *session_new(int argc, char **argv)
         printf("Failed to new display\n");
         goto failed;
     }
+    register_handle_resize_cb(session->display, session_handle_resize, session);
 
     /**
      * NOTE: wpice can only be initialized after the display is initialized,
