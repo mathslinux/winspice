@@ -773,6 +773,22 @@ static void start(WSpice *wspice)
     spice_server_set_addr(wspice->server, "0.0.0.0", 0);   /* FIXME:  */
     //spice_server_set_image_compression(wspice->server, SPICE_IMAGE_COMPRESSION_AUTO_GLZ);  /* FIXME:  */
 
+    /**
+     * disable spice_stream_video.
+     * In the display channel, if the server's message_window grows too fast
+     * and exceeds the client's message_window twice, the server will refuse
+     * to send data until it receives the client's ack message, but the
+     * strange thing is that sometimes the client has already received data,
+     * but the ack message is not sent back, which causing the whole process
+     * to hang.
+     *
+     * This situation usually occurs when spice_stream_video is turned on and
+     * data is sent very frequently. I don’t know which part of the client
+     * has a problem, temporarily turn off spice_stream_video to bypass
+     * this problem.
+     */
+    spice_server_set_streaming_video(wspice->server, SPICE_STREAM_VIDEO_OFF);
+
     /// qxl
     wspice->qxl.base.sif = &dpy_interface.base;
     wspice->qxl.id = 0;
