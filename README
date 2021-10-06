@@ -38,8 +38,20 @@ $ winspice.exe
 #+END_SRC
 Or double click winspice.exe to run, the default port is 5900.
 
-NOTE: winspice currently only supports windows 8 and above since windows DXGI 
+NOTE 1: winspice currently only supports windows 8 and above since windows DXGI
 interface is used to get the display data.
 
 In the future, a GUI window will be provided to set the port, username and 
 other parameters.
+
+NOTE 2: By default, the windows system does not have the icons required by gtk,
+and it needs to be manually copied to the corresponding directory.
+
+Copy the icons from: /usr/i686-w64-mingw32/sys-root/mingw/share/icons
+to path where winspice.exe is located. e.g.
+#+BEGIN_EXAMPLE
+├── share
+│   └── icons
+│       └── Adwaita
+└── winspice.exe
+#+END_EXAMPLE
